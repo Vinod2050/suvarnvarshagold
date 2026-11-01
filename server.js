@@ -14,9 +14,9 @@ const { migrate } = require('./src/config/migrate');
 migrate()
   .then((r) => {
     if (r.skipped) console.log('Database: automatic table setup turned off (AUTO_MIGRATE=false)');
-    if (r.created) console.log(`Admin account "${r.created}" created from the ADMIN_PASSWORD setting`);
-    console.log(`Database connected and ready (${r.admins} admin account${r.admins === 1 ? '' : 's'})`);
-    if (!r.admins) console.log('No admin yet: add the ADMIN_PASSWORD setting and restart, or run: npm run create-admin');
+    for (const c of r.created) console.log(`Account created: ${c}`);
+    console.log(`Database connected and ready (${r.admins} account${r.admins === 1 ? '' : 's'}, ${r.supers} super admin${r.supers === 1 ? '' : 's'})`);
+    if (!r.supers) console.log('No super admin yet: add the SUPERADMIN_PASSWORD setting and restart, or run: npm run create-admin -- superadmin --super');
     return null;
   })
   .catch((err) => console.error(`Database setup failed: ${err.code || err.message}. Check the DB_* settings.`));

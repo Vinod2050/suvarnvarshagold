@@ -133,14 +133,13 @@ async function main() {
     csrf = (await call('GET', '/api/auth/status')).data.csrfToken;
   });
 
-  await test('5 wrong passwords lock sign-in for that username', async () => {
+  await test('too many wrong tries from one device are slowed down', async () => {
     const ip = '203.0.113.77';
-    for (let i = 0; i < 5; i += 1) {
-      const r = await call('POST', '/api/auth/login', { body: { username: 'locktest', password: 'wrong-password' }, ip });
-      assert.equal(r.status, 401);
+    let last;
+    for (let i = 0; i < 21; i += 1) {
+      last = await call('POST', '/api/auth/login', { body: { username: `nobody${i}`, password: 'wrong-password' }, ip });
     }
-    const locked = await call('POST', '/api/auth/login', { body: { username: 'locktest', password: 'wrong-password' }, ip });
-    assert.equal(locked.status, 429);
+    assert.equal(last.status, 429, 'per-device limit');
   });
 
   await test('sign in with the right password', async () => {
@@ -155,6 +154,73 @@ async function main() {
   await test('admin page opens after sign-in', async () => {
     const r = await call('GET', '/admin/dashboard', { raw: true });
     assert.equal(r.status, 200);
+  });
+
+  // Signs in with its own cookie (does not touch the main session). Returns { status, json, jar }.
+  async function separateLogin(username, password, ip) {
+    const st = await fetch(`${BASE}/api/auth/status`, { headers: { Origin: BASE, 'X-Forwarded-For': ip } });
+    const jar = (st.headers.get('set-cookie') || '').split(';')[0];
+    const token = (await st.json()).data.csrfToken;
+    const r = await fetch(`${BASE}/api/auth/login`, {
+      method: 'POST',
+      headers: { Origin: BASE, Cookie: jar, 'X-CSRF-Token': token, 'Content-Type': 'application/json', 'X-Forwarded-For': ip },
+      body: JSON.stringify({ username, password }),
+    });
+    const setCookie = r.headers.get('set-cookie');
+    return { status: r.status, json: await r.json(), jar: setCookie ? setCookie.split(';')[0] : jar };
+  }
+
+  await test('users: super admin adds a user; 5 wrong passwords lock it; super admin unlocks; roles limit access', async () => {
+    const me = await call('GET', '/api/auth/me');
+    assert.equal(me.data.user.role, 'superadmin', 'the first admin (setup) is a super admin');
+    const short = await call('POST', '/api/admin/users', { body: { username: 'staff1', password: 'short', role: 'admin' } });
+    assert.equal(short.status, 400);
+    const add = await call('POST', '/api/admin/users', { body: { username: 'staff1', display_name: 'Staff One', password: 'Staff-Pass-1', role: 'admin' } });
+    assert.equal(add.status, 201, JSON.stringify(add));
+    const staff = add.data;
+    assert.equal(staff.password_hash, undefined, 'hash never sent');
+    const dup = await call('POST', '/api/admin/users', { body: { username: 'staff1', password: 'Staff-Pass-1' } });
+    assert.equal(dup.status, 400);
+
+    // 4 wrong passwords: still open, with a warning; the 5th locks the account
+    for (let i = 1; i <= 4; i += 1) {
+      const w = await separateLogin('staff1', 'wrong-pass', `198.51.100.${i}`);
+      assert.equal(w.status, 401);
+      assert.match(w.json.error, new RegExp(`${5 - i} tr(y|ies) left`));
+    }
+    const fifth = await separateLogin('staff1', 'wrong-pass', '198.51.100.5');
+    assert.equal(fifth.status, 423, 'locked on the 5th wrong password');
+    const right = await separateLogin('staff1', 'Staff-Pass-1', '198.51.100.6');
+    assert.equal(right.status, 423, 'even the right password is refused while locked');
+    const listed = await call('GET', '/api/admin/users');
+    assert.ok(listed.data.items.find((u) => u.id === staff.id).locked_at, 'shown as locked');
+
+    // super admin unlocks; the user can sign in, but only with admin (limited) access
+    assert.equal((await call('PATCH', `/api/admin/users/${staff.id}/lock`, { body: { locked: false } })).ok, true);
+    const ok = await separateLogin('staff1', 'Staff-Pass-1', '198.51.100.7');
+    assert.equal(ok.status, 200, JSON.stringify(ok.json));
+    const asStaff = (method, path, body) =>
+      fetch(BASE + path, { method, headers: { Origin: BASE, Cookie: ok.jar, 'X-CSRF-Token': ok.json.data.csrfToken, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    assert.equal((await asStaff('GET', '/api/admin/gold-rates')).status, 200, 'admin can work on rates');
+    assert.equal((await asStaff('GET', '/api/admin/faqs')).status, 200, 'admin can work on FAQs');
+    assert.equal((await asStaff('GET', '/api/admin/settings')).status, 403, 'admin cannot open settings');
+    assert.equal((await asStaff('GET', '/api/admin/users')).status, 403, 'admin cannot manage users');
+    assert.equal((await asStaff('POST', '/api/admin/users', { username: 'x1x', password: 'Staff-Pass-1' })).status, 403);
+    const page = await fetch(`${BASE}/admin/users`, { headers: { Cookie: ok.jar }, redirect: 'manual' });
+    assert.equal(page.status, 302, 'users page sends admins back to the dashboard');
+
+    // locking signs the user out at once
+    assert.equal((await call('PATCH', `/api/admin/users/${staff.id}/lock`, { body: { locked: true } })).ok, true);
+    assert.equal((await asStaff('GET', '/api/admin/gold-rates')).status, 401, 'locked user is signed out');
+
+    // reset password also unlocks; guards on own account and the last super admin
+    const reset = await call('PUT', `/api/admin/users/${staff.id}/password`, { body: { new_password: 'New-Staff-Pass-2' } });
+    assert.equal(reset.data.locked_at, null);
+    assert.equal((await separateLogin('staff1', 'New-Staff-Pass-2', '198.51.100.8')).status, 200);
+    assert.equal((await call('DELETE', `/api/admin/users/${me.data.user.id}`)).status, 403, 'cannot remove yourself');
+    assert.equal((await call('PATCH', `/api/admin/users/${me.data.user.id}/lock`, { body: { locked: true } })).status, 403, 'cannot lock yourself');
+    assert.equal((await call('PUT', `/api/admin/users/${me.data.user.id}`, { body: { role: 'admin' } })).status, 403, 'cannot demote yourself');
+    assert.equal((await call('DELETE', `/api/admin/users/${staff.id}`)).ok, true);
   });
 
   let rateId;

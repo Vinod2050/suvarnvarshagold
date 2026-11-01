@@ -2,7 +2,7 @@
 -- Only needed if the app cannot create its tables by itself on start (see DEPLOY-GODADDY.md).
 -- Import into the EMPTY hosted database (phpMyAdmin / database console -> Import). Safe to run again:
 -- tables are created only if missing and rows use INSERT IGNORE, so nothing is duplicated or overwritten.
--- No admin account is in this file (see DEPLOY-GODADDY.md: ADMIN_PASSWORD setting or npm run create-admin).
+-- No accounts are in this file (see DEPLOY-GODADDY.md: SUPERADMIN_PASSWORD / ADMIN_PASSWORD settings).
 -- Made from database/schema.sql + database/seed.sql; if you change those, rebuild this file.
 
 -- Suvarnavarsha Gold website - database tables (MySQL 8 / MariaDB 10.6+)
@@ -12,13 +12,17 @@
 
 SET NAMES utf8mb4;
 
--- Admin users (passwords are bcrypt hashes; the first admin is created on the setup screen or with npm run create-admin)
+-- Admin users (passwords are bcrypt hashes). Older databases get the role / failed_attempts / locked_at
+-- columns added on start by src/config/migrate.js.
 CREATE TABLE IF NOT EXISTS admin_users (
   id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   username       VARCHAR(50)  NOT NULL,
   password_hash  VARCHAR(100) NOT NULL,
   display_name   VARCHAR(100) NOT NULL DEFAULT '',
+  role           ENUM('superadmin','admin') NOT NULL DEFAULT 'admin',  -- superadmin: everything incl. users and settings
   status         ENUM('active','disabled') NOT NULL DEFAULT 'active',
+  failed_attempts INT UNSIGNED NOT NULL DEFAULT 0,   -- wrong passwords in a row
+  locked_at      DATETIME NULL,                     -- set after 5 wrong passwords; a super admin unlocks
   last_login_at  DATETIME NULL,
   created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

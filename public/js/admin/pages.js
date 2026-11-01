@@ -18,12 +18,13 @@
     });
   }
 
-  var ACTIONS = { create: 'added', update: 'updated', delete: 'deleted', status: 'changed the status of' };
-  var ENTITIES = { gold_rate: 'a gold rate', advertisement: 'an advertisement', feedback: 'a customer video', product: 'a product', faq: 'a question', settings: 'the settings', account: 'the account' };
+  var ACTIONS = { create: 'added', update: 'updated', delete: 'deleted', status: 'changed the status of', lock: 'locked', unlock: 'unlocked' };
+  var ENTITIES = { gold_rate: 'a gold rate', advertisement: 'an advertisement', feedback: 'a customer video', product: 'a product', faq: 'a question', settings: 'the settings', account: 'the account', user: 'a user' };
   function activityText(a) {
     if (a.action === 'login') return 'signed in';
     if (a.action === 'logout') return 'signed out';
-    if (a.action === 'password') return 'changed the password';
+    if (a.action === 'password') return a.entity === 'user' ? 'reset a user password' : 'changed the password';
+    if (a.action === 'lock' && a.entity === 'account') return 'was locked (wrong passwords)';
     return (ACTIONS[a.action] || a.action) + ' ' + (ENTITIES[a.entity] || a.entity);
   }
 
@@ -334,6 +335,85 @@
     });
   }
 
+  // ======================= Users (super admin only) =======================
+  function users() {
+    var ROLES = [['admin', 'Admin (rates, videos, products, FAQs)'], ['superadmin', 'Super admin (everything)']];
+    var me = Number(document.body.getAttribute('data-user-id'));
+    var TEMP_HELP = 'Temporary password, 8+ characters. Tell it to the user privately; they change it after signing in.';
+    var call = function (method, url, body, okText, reload) {
+      return SV.api(method, url, body).then(function () { SV.toast(okText); reload(); }).catch(SV.fail);
+    };
+    var add = function (reload) {
+      SV.editModal({
+        title: 'Add user',
+        saveLabel: 'Add user',
+        fields: [
+          { name: 'username', label: 'Username', required: true, max: 50, col: 'col-md-6', help: '3–50 letters, numbers, dots, dashes or underscores.' },
+          { name: 'display_name', label: 'Name (shown in the panel)', max: 100, col: 'col-md-6' },
+          { name: 'role', label: 'Access', type: 'select', options: ROLES },
+          { name: 'password', label: 'Temporary password', type: 'password', required: true, autocomplete: 'new-password', help: TEMP_HELP },
+        ],
+        values: { role: 'admin' },
+        submit: function (v) { return SV.api('POST', '/api/admin/users', v).then(function () { SV.toast('User added'); reload(); }); },
+      });
+    };
+    var edit = function (u, reload) {
+      SV.editModal({
+        title: 'Edit ' + u.username,
+        fields: [
+          { name: 'display_name', label: 'Name (shown in the panel)', max: 100 },
+          { name: 'role', label: 'Access', type: 'select', options: ROLES, help: u.id === me ? 'You cannot change your own access.' : '' },
+        ],
+        values: u,
+        submit: function (v) { return SV.api('PUT', '/api/admin/users/' + u.id, v).then(function () { SV.toast('User updated'); reload(); }); },
+      });
+    };
+    var reset = function (u, reload) {
+      SV.editModal({
+        title: 'Reset password for ' + u.username,
+        saveLabel: 'Set new password',
+        fields: [{ name: 'new_password', label: 'New temporary password', type: 'password', required: true, autocomplete: 'new-password', help: TEMP_HELP + ' This also unlocks the account.' }],
+        submit: function (v) { return SV.api('PUT', '/api/admin/users/' + u.id + '/password', v).then(function () { SV.toast('Password changed for ' + u.username); reload(); }); },
+      });
+    };
+    SV.listPage({
+      endpoint: '/api/admin/users',
+      search: false,
+      empty: 'No users yet.',
+      addLabel: 'Add user',
+      onAdd: add,
+      columns: [
+        { label: 'User', render: function (u) { return [h('div', { class: 'fw-semibold' }, u.username + (u.id === me ? ' (you)' : '')), u.display_name ? h('div', { class: 'adm-muted' }, u.display_name) : null]; } },
+        { label: 'Access', half: true, render: function (u) { return SV.badge(u.role, u.role === 'superadmin' ? 'Super admin' : 'Admin'); } },
+        {
+          label: 'Status',
+          half: true,
+          render: function (u) {
+            if (u.locked_at) return [SV.badge('locked', 'Locked'), h('div', { class: 'adm-muted' }, 'since ' + SV.dateTime(u.locked_at))];
+            return [SV.badge('active', 'Active'), u.failed_attempts ? h('div', { class: 'adm-muted' }, u.failed_attempts + ' wrong password' + (u.failed_attempts === 1 ? '' : 's')) : null];
+          },
+        },
+        { label: 'Last sign-in', render: function (u) { return h('span', { class: 'adm-muted text-nowrap' }, u.last_login_at ? SV.dateTime(u.last_login_at) : 'Never'); } },
+      ],
+      actions: function (u, reload) {
+        var list = [];
+        if (u.locked_at) {
+          list.push(h('button', { type: 'button', class: 'btn btn-sm btn-success', onclick: function () { call('PATCH', '/api/admin/users/' + u.id + '/lock', { locked: false }, u.username + ' unlocked', reload); } }, 'Unlock'));
+        } else if (u.id !== me) {
+          list.push(h('button', { type: 'button', class: 'btn btn-sm btn-outline-dark', onclick: function () {
+            SV.confirm('Lock ' + u.username + '? They are signed out at once and cannot sign in until unlocked.', 'Lock').then(function (yes) {
+              if (yes) call('PATCH', '/api/admin/users/' + u.id + '/lock', { locked: true }, u.username + ' locked', reload);
+            });
+          } }, 'Lock'));
+        }
+        list.push(SV.iconBtn('edit', 'Edit name or access', function () { edit(u, reload); }));
+        list.push(h('button', { type: 'button', class: 'btn btn-sm btn-outline-dark', onclick: function () { reset(u, reload); } }, 'Reset password'));
+        if (u.id !== me) list.push(SV.iconBtn('trash', 'Remove user', function () { SV.removeRow('/api/admin/users/' + u.id, 'user ' + u.username, reload); }, true));
+        return list;
+      },
+    });
+  }
+
   // ======================= Settings =======================
   function settings() {
     var GROUPS = [
@@ -417,6 +497,6 @@
     });
   }
 
-  var PAGES = { dashboard: dashboard, 'gold-rates': goldRates, advertisements: advertisements, feedback: feedback, products: products, faqs: faqs, settings: settings };
+  var PAGES = { dashboard: dashboard, 'gold-rates': goldRates, advertisements: advertisements, feedback: feedback, products: products, faqs: faqs, users: users, settings: settings };
   document.addEventListener('DOMContentLoaded', function () { if (PAGES[page]) PAGES[page](); });
 })();

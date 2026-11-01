@@ -147,3 +147,25 @@ body.adm { background: var(--bs-body-bg); font-size: 1rem; }
 .toast-container { z-index: 1090; }
 .adm-toast.ok { border-left: 5px solid #128049; }
 .adm-toast.err { border-left: 5px solid #c62828; }
+
+/* Password boxes: eye button to show / hide the password */
+.adm-pw { position: relative; }
+.adm-pw > input { padding-right: 48px; }
+.adm-pw-toggle {
+  position: absolute; top: 50%; right: 4px; transform: translateY(-50%);
+  width: 40px; height: 40px; min-height: 0; padding: 0; border: 0; border-radius: 8px;
+  background: transparent; color: var(--ink-muted); display: grid; place-items: center;
+}
+.adm-pw-toggle:hover { background: #f7f1e3; color: var(--ink); }
+.adm-pw-toggle .eye-off, .adm-pw-toggle[aria-pressed="true"] .eye-open { display: none; }
+.adm-pw-toggle[aria-pressed="true"] .eye-off { display: inline; }
+.adm-pw > input.is-invalid { background-image: none; }
+/* Error text also shows when the input is wrapped (not a direct sibling any more) */
+.adm .invalid-feedback:not(:empty) { display: block; }
+
+/* Role badge next to the signed-in name, and user status badges */
+.adm-role { font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #f2ecee; color: #6b5a5f; }
+.adm-role.super { background: var(--plum-800); color: var(--gold-300); }
+.adm-badge.locked { background: #fdecea; color: #b3261e; }
+.adm-badge.superadmin { background: var(--plum-800); color: var(--gold-300); }
+.adm-badge.admin { background: #f2ecee; color: #6b5a5f; }

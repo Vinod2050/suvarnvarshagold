@@ -6,6 +6,7 @@ const productService = require('../services/products.service');
 const faqService = require('../services/faqs.service');
 const settingsService = require('../services/settings.service');
 const dashboardService = require('../services/dashboard.service');
+const usersService = require('../services/users.service');
 const { ok } = require('../utils/response');
 const { listOptions, parseId } = require('../utils/validate');
 const { saveImage, removeUpload } = require('../utils/upload');
@@ -91,8 +92,24 @@ const settings = {
   },
 };
 
+const users = {
+  // Same shape as the other lists (the admin list screen pages through items).
+  list: async (req, res) => {
+    const items = await usersService.list();
+    ok(res, { items, total: items.length, page: 1, pageSize: Math.max(1, items.length), pages: 1 });
+  },
+  create: async (req, res) => ok(res, await usersService.create(req.body, req.admin.id), 201),
+  update: async (req, res) => ok(res, await usersService.update(id(req), req.body, req.admin.id)),
+  resetPassword: async (req, res) => ok(res, await usersService.resetPassword(id(req), req.body, req.admin.id)),
+  setLocked: async (req, res) => ok(res, await usersService.setLocked(id(req), Boolean(req.body && req.body.locked), req.admin.id)),
+  remove: async (req, res) => {
+    await usersService.remove(id(req), req.admin.id);
+    ok(res);
+  },
+};
+
 const dashboard = {
   stats: async (req, res) => ok(res, await dashboardService.stats()),
 };
 
-module.exports = { goldRates, advertisements, feedback, products, faqs, settings, dashboard };
+module.exports = { goldRates, advertisements, feedback, products, faqs, settings, users, dashboard };

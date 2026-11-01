@@ -1,13 +1,14 @@
 // Protects admin APIs and admin pages. The session holds only the admin id; the user is re-checked on
-// every request so a disabled or deleted admin is signed out at once.
+// every request so a disabled, locked or deleted account is signed out at once.
+// Roles: superadmin (everything) and admin (rates, videos, feedback, products, FAQs). See requireSuperAdmin.
 const { adminUsers } = require('../models');
-const { unauthorized } = require('../utils/response');
+const { unauthorized, forbidden } = require('../utils/response');
 
 async function loadAdmin(req) {
   const id = req.session && req.session.adminId;
   if (!id) return null;
   const user = await adminUsers.byId(id);
-  if (!user || user.status !== 'active') {
+  if (!user || user.status !== 'active' || user.locked_at) {
     req.session.adminId = null;
     return null;
   }
@@ -39,4 +40,10 @@ async function requireAdminPage(req, res, next) {
   }
 }
 
-module.exports = { requireAdmin, requireAdminPage, loadAdmin };
+// After requireAdmin: only super admins (users, settings).
+function requireSuperAdmin(req, res, next) {
+  if (!req.admin || req.admin.role !== 'superadmin') return next(forbidden('Only a super admin can do this.'));
+  return next();
+}
+
+module.exports = { requireAdmin, requireAdminPage, requireSuperAdmin, loadAdmin };

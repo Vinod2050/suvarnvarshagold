@@ -1,6 +1,8 @@
 // Creates an admin, or sets a new password for an existing one.
 //   npm run create-admin                 (asks for username and password)
 //   npm run create-admin -- <username>   (asks only for the password)
+//   npm run create-admin -- <username> --super   (the account is a super admin)
+// Setting a password for an existing account also unlocks it (e.g. a locked super admin).
 // The password is typed hidden and never stored in plain text.
 const readline = require('readline');
 const { Writable } = require('stream');
@@ -25,7 +27,9 @@ async function main() {
   const { hashPassword, checkUsername, MIN_PASSWORD } = require('../src/services/auth.service');
   const { adminUsers, activity } = require('../src/models');
   try {
-    const username = process.argv[2] || (await ask('Admin username: '));
+    const args = process.argv.slice(2);
+    const wantSuper = args.includes('--super');
+    const username = args.find((a) => !a.startsWith('--')) || (await ask('Admin username: '));
     checkUsername(username);
     const password = await ask(`Password (${MIN_PASSWORD}+ characters): `, { hidden: true });
     if (password.length < MIN_PASSWORD) throw new Error(`Password must be at least ${MIN_PASSWORD} characters.`);
@@ -36,13 +40,15 @@ async function main() {
     const existing = await adminUsers.byUsername(username);
     if (existing) {
       await adminUsers.setPassword(existing.id, hash);
+      await adminUsers.unlock(existing.id);
+      if (wantSuper) await adminUsers.update(existing.id, { display_name: existing.display_name, role: 'superadmin' });
       await activity.add(existing.id, 'password', 'account', existing.id, 'Password set from the command line');
-      console.log(`Password changed for "${username}".`);
+      console.log(`Password changed for "${username}" (account unlocked${wantSuper ? ', now super admin' : ''}).`);
     } else {
-      await adminUsers.create(username, hash);
+      await adminUsers.create(username, hash, '', wantSuper ? 'superadmin' : 'admin');
       const user = await adminUsers.byUsername(username);
       await activity.add(user.id, 'create', 'account', user.id, 'Admin created from the command line');
-      console.log(`Admin "${username}" created. Sign in at /admin/login`);
+      console.log(`${wantSuper ? 'Super admin' : 'Admin'} "${username}" created. Sign in at /admin/login`);
     }
   } catch (err) {
     console.error(`Error: ${err.fields ? Object.values(err.fields).join(' ') : err.message}`);

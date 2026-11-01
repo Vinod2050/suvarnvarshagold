@@ -11,14 +11,16 @@ Suvarnavarsha Gold - settings for GoDaddy (Node.js app -> Secrets / Environment 
    DB_PASSWORD
 
 
-2) ADD NOW (two settings):
+2) ADD (private, 8+ characters each; GoDaddy sets NODE_ENV itself - it is reserved):
 
-   NODE_ENV       = production
-   ADMIN_PASSWORD = <the admin password you chose, 8+ characters - keep it private>
+   SUPERADMIN_PASSWORD = <temporary super admin password>   -> creates account "superadmin"
+   ADMIN_PASSWORD      = <admin password>                   -> creates account "admin" (limited)
 
-   On first start the app creates the admin account "admin" with this password (only if no admin exists;
-   it never overwrites one). Change the password from the admin menu after signing in; the setting can
-   then be deleted. Optional: ADMIN_USERNAME = <name> (default: admin).
+   Each account is created only if it does not exist yet; an existing one is never changed.
+   Super admin: everything, incl. Users (add / remove / lock / unlock / reset password) and Settings.
+   Admin: daily rates, ad videos, customer feedback, store products and FAQs only.
+   Change the passwords after the first sign-in; the settings can then be deleted.
+   Optional: SUPERADMIN_USERNAME / ADMIN_USERNAME to use other names.
 
 
 3) ADD LATER, when the domain is connected (no slash at the end):

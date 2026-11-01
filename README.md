@@ -49,7 +49,7 @@ Needs Node.js 20 or 22 and a MySQL 8 (or MariaDB 10.6+) database.
    and **attach a hosted MySQL database**. GoDaddy then sets `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`
    and `DB_PASSWORD` by itself (Secrets card); do not enter them again.
 3. Add these environment variables (Secrets / Environment): `NODE_ENV=production`,
-   `ADMIN_PASSWORD=<admin password>` and later `SITE_URL=https://your-domain` (no slash at the end):
+   `SUPERADMIN_PASSWORD=<temporary password>`, `ADMIN_PASSWORD=<admin password>` and later `SITE_URL=https://your-domain` (no slash at the end):
    `SESSION_SECRET` / `IP_HASH_SALT` are derived from the database password when not set.
 4. Upload the ZIP and deploy / restart. On start the app creates all tables, the starting content
    (settings, FAQs, the 10 g coin, a first rate) and the admin account. Check
@@ -67,16 +67,22 @@ Back up the database regularly (GoDaddy database backups or an SQL export).
 
 ## Admin login
 
-No password is kept in any file of the project. The first admin is created on start from the private
-hosting setting `ADMIN_PASSWORD` (username `admin`, or `ADMIN_USERNAME`), only while the database has no
-admin; it never overwrites one. Change the password after the first sign-in (top-right menu → Change
-password; new passwords need 12+ characters), then the setting can be deleted.
+No password is kept in any file of the project. Accounts are created on start from private hosting
+settings, only when missing (never overwritten): `SUPERADMIN_PASSWORD` → **superadmin** (everything,
+incl. Users and Settings) and `ADMIN_PASSWORD` → **admin** (rates, videos, feedback, products, FAQs).
+Change passwords after the first sign-in (top-right menu → Change password, 12+ characters).
+
+The super admin manages users on the **Users** page: add, edit access, reset password, lock / unlock,
+remove. **5 wrong passwords lock an account** until a super admin unlocks it (a super admin who locks
+themselves out is unlocked after 15 minutes). `npm run create-admin -- <name> --super` creates or
+resets a super admin from the hosting terminal.
 
 - More admins or a forgotten password: `npm run create-admin` in the app folder (hosting terminal / SSH).
 - The one-time setup screen (`SETUP_TOKEN`) is only used if a database has no admin at all.
 
 Security: bcrypt (cost 12), session cookie HttpOnly + SameSite=Strict (+ Secure over HTTPS in production),
-sessions stored in MySQL, CSRF token on every admin change, 5 wrong passwords → 15-minute lock,
+sessions stored in MySQL, CSRF token on every admin change, 5 wrong passwords → account locked
+until a super admin unlocks it, roles (super admin / admin) checked on the server,
 rate limits on login and the API, salted SHA-256 IP hashes only, strict Content-Security-Policy.
 
 ## What the admin controls on the website
@@ -114,7 +120,7 @@ Run against a **test database only** (the tests create and delete rows):
 1. Start the app with a test `.env` (`SETUP_TOKEN` set, empty `admin_users` table for the first run)
 2. `npm test` (or `node tests/api.test.js http://127.0.0.1:5600`)
 
-The 20 checks cover: every public page in both languages, clean addresses and security headers,
+The 21 checks cover: every public page in both languages, clean addresses and security headers,
 sign-in, setup, lockout, CSRF and other-website refusal, and add/edit/delete for rates, videos,
 products (image checks), FAQs, settings, the WhatsApp-only booking page,
 dashboard, SQL-injection input and password change.

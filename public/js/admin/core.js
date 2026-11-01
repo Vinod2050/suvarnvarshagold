@@ -232,6 +232,7 @@
     save.textContent = opts.saveLabel || 'Save';
     SV.clearErrors(form, alertEl);
     opts.fields.forEach(function (f) { area.appendChild(SV.field(f, opts.values ? opts.values[f.name] : f.default)); });
+    SV.addReveal(area);
     var modal = bootstrap.Modal.getOrCreateInstance(el);
     form.onsubmit = function (e) {
       e.preventDefault();
@@ -342,8 +343,35 @@
     });
   };
 
+  // ---------- show / hide password (eye button on every password box) ----------
+  var EYE = '<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path class="eye-open" d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle class="eye-open" cx="12" cy="12" r="3"/><path class="eye-off" d="M9.9 4.2A10 10 0 0 1 12 4c7 0 10 8 10 8a13 13 0 0 1-1.7 2.7M6.6 6.6A13.5 13.5 0 0 0 2 12s3 8 10 8a9.7 9.7 0 0 0 5.4-1.6M2 2l20 20"/></svg>';
+  SV.addReveal = function (root) {
+    Array.prototype.forEach.call((root || document).querySelectorAll('input[type="password"]:not([data-reveal-ready])'), function (input) {
+      input.setAttribute('data-reveal-ready', '');
+      var wrap = SV.h('div', { class: 'adm-pw' });
+      input.parentNode.insertBefore(wrap, input);
+      wrap.appendChild(input);
+      var btn = SV.h('button', { type: 'button', class: 'adm-pw-toggle', 'aria-label': 'Show password', 'aria-pressed': 'false', title: 'Show password' });
+      btn.innerHTML = EYE; // constant markup
+      btn.addEventListener('click', function () {
+        var show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        btn.setAttribute('aria-pressed', String(show));
+        btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        btn.title = show ? 'Hide password' : 'Show password';
+        input.focus();
+      });
+      wrap.appendChild(btn);
+    });
+  };
+  // Hide passwords again when a window closes (so they are not left visible).
+  document.addEventListener('hidden.bs.modal', function (e) {
+    Array.prototype.forEach.call(e.target.querySelectorAll('.adm-pw-toggle[aria-pressed="true"]'), function (b) { b.click(); });
+  });
+
   // ---------- header: sign out, change password ----------
   document.addEventListener('DOMContentLoaded', function () {
+    if (document.body.getAttribute('data-page') !== 'login') SV.addReveal(document);
     var logout = SV.$('#logout-btn');
     if (logout) logout.addEventListener('click', function () {
       SV.api('POST', '/api/auth/logout').catch(function () {}).then(function () { window.location.href = '/admin/login'; });

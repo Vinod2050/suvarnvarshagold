@@ -4,7 +4,7 @@
 //   /api/admin/*   admin panel (signed in + CSRF token)
 const express = require('express');
 const { wrap } = require('../utils/response');
-const { requireAdmin } = require('../middleware/auth');
+const { requireAdmin, requireSuperAdmin } = require('../middleware/auth');
 const { verifyCsrf, sameOrigin } = require('../middleware/csrf');
 const { loginLimiter } = require('../middleware/rateLimits');
 const { imageUpload } = require('../utils/upload');
@@ -69,8 +69,16 @@ adminRouter.patch('/faqs/:id/move', wrap(admin.faqs.move));
 adminRouter.delete('/faqs/:id', wrap(admin.faqs.remove));
 
 
-adminRouter.get('/settings', wrap(admin.settings.get));
-adminRouter.put('/settings', wrap(admin.settings.update));
-adminRouter.post('/settings/logo', imageUpload.single('image'), wrap(admin.settings.logo));
+// Super admin only: website settings and user accounts
+adminRouter.get('/settings', requireSuperAdmin, wrap(admin.settings.get));
+adminRouter.put('/settings', requireSuperAdmin, wrap(admin.settings.update));
+adminRouter.post('/settings/logo', requireSuperAdmin, imageUpload.single('image'), wrap(admin.settings.logo));
+
+adminRouter.get('/users', requireSuperAdmin, wrap(admin.users.list));
+adminRouter.post('/users', requireSuperAdmin, wrap(admin.users.create));
+adminRouter.put('/users/:id', requireSuperAdmin, wrap(admin.users.update));
+adminRouter.put('/users/:id/password', requireSuperAdmin, wrap(admin.users.resetPassword));
+adminRouter.patch('/users/:id/lock', requireSuperAdmin, wrap(admin.users.setLocked));
+adminRouter.delete('/users/:id', requireSuperAdmin, wrap(admin.users.remove));
 
 module.exports = { publicRouter, authRouter, adminRouter };

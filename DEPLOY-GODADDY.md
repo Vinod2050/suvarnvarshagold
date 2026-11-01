@@ -13,23 +13,33 @@ Settings to enter: see `deploy/godaddy-env.txt`.
 2. **Attach the hosted MySQL database** to the app (if it is not attached yet).
    Then open the **Secrets** card and check these five are listed: `DB_HOST`, `DB_PORT`, `DB_NAME`,
    `DB_USER`, `DB_PASSWORD`. Do not type or change them; GoDaddy fills them in.
-3. **Add two settings** in the Secrets / Environment card:
-   - `NODE_ENV` = `production`
-   - `ADMIN_PASSWORD` = the admin password you chose (8+ characters; keep it private)
+3. **Add the account settings** in the Secrets card (private, 8+ characters each). GoDaddy sets
+   `NODE_ENV` itself (it is reserved), so do not add it.
+   - `SUPERADMIN_PASSWORD` = temporary password for **superadmin** (full access, manages users)
+   - `ADMIN_PASSWORD` = password for **admin** (rates, videos, feedback, products, FAQs only)
    (`SITE_URL` comes later, with the domain.)
 4. **Restart / redeploy** the app so it picks up the database settings.
 5. **Check the app log.** You should see:
    ```
    Suvarnavarsha Gold website running on port ... (production)
-   Admin account "admin" created from the ADMIN_PASSWORD setting
-   Database connected and ready (1 admin account)
+   Account created: super admin "superadmin"
+   Database connected and ready (2 accounts, 1 super admin)
    ```
 6. **Check in the browser** (use the app's temporary GoDaddy address until the domain is added):
    - `<app address>/api/health` shows `{"ok":true,"data":{"db":"up"}}`
    - `<app address>/` shows the website with today's rate
-   - `<app address>/admin` → sign in with username **admin** and the password from `ADMIN_PASSWORD`
-7. **Change the admin password** after the first sign-in (top-right menu → Change password, 12+ characters).
-   The `ADMIN_PASSWORD` setting is only used while there is no admin; you can delete it afterwards.
+   - `<app address>/admin` → sign in as **superadmin** with the password from `SUPERADMIN_PASSWORD`
+7. **Change the passwords** after the first sign-in (top-right menu → Change password, 12+ characters).
+   The password settings are only used while an account does not exist; you can delete them afterwards.
+
+## Users and access
+
+- **Super admin** (Users page): add, edit, remove users, reset passwords, lock and unlock accounts.
+- **Admin**: Dashboard, Gold rates, Advertisements, Customer feedback, Store products and FAQs only.
+- **5 wrong passwords** lock an account until a super admin unlocks it (Users page → Unlock).
+  A super admin who locks themselves out is unlocked automatically after 15 minutes.
+- Lost the last super admin password: `npm run create-admin -- superadmin --super` (hosting terminal),
+  or ask the developer.
 
 ## If something is wrong: what the log line means
 
@@ -41,8 +51,8 @@ Settings to enter: see `deploy/godaddy-env.txt`.
 | `Database setup failed: ER_BAD_DB_ERROR` | The database name does not exist | Check `DB_NAME`; create the database or re-attach |
 | `Database setup failed: ER_TABLEACCESS_DENIED_ERROR` / `CREATE command denied` | The user may not create tables | Use **Manual setup** below |
 | Error mentioning `SSL` / `secure transport` | The database requires an encrypted connection | Tell the developer: a small `DB_SSL` option is needed (new ZIP) |
-| `No admin yet: add the ADMIN_PASSWORD setting` | No admin account exists | Add `ADMIN_PASSWORD` and restart, or run `npm run create-admin` |
-| `ADMIN_PASSWORD must be at least 8 characters` | The password setting is too short | Use 8+ characters and restart |
+| `No super admin yet: add the SUPERADMIN_PASSWORD setting` | No super admin exists | Add `SUPERADMIN_PASSWORD` and restart |
+| `SUPERADMIN_PASSWORD must be at least 8 characters` | The password setting is too short | Use 8+ characters and restart |
 
 While the database is not reachable, the website still opens with its built-in content, but the
 admin panel cannot sign in.
@@ -52,7 +62,7 @@ admin panel cannot sign in.
 1. Open the database tool in GoDaddy (phpMyAdmin or the database console) for the hosted database.
 2. **Import** `database/setup-all.sql` (one file: tables + starting content). It is safe to run
    again; nothing is duplicated or overwritten.
-3. Add the setting `AUTO_MIGRATE` = `false` and restart. The admin is still created from `ADMIN_PASSWORD`.
+3. Add the setting `AUTO_MIGRATE` = `false` and restart. The accounts are still created from the password settings.
    The log then shows `Database: automatic table setup turned off (AUTO_MIGRATE=false)`; check `/api/health`
    and sign in as above.
 

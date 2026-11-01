@@ -3,7 +3,7 @@
 const { esc } = require('./util');
 const { icon } = require('./icons');
 // Bump to make browsers fetch new admin CSS/JS after a change.
-const ASSET_VERSION = '11';
+const ASSET_VERSION = '12';
 
 const NAV = [
   ['dashboard', 'Dashboard', 'layout'],
@@ -12,9 +12,12 @@ const NAV = [
   ['feedback', 'Customer feedback', 'message'],
   ['products', 'Store products', 'box'],
   ['faqs', 'FAQs', 'help'],
-  ['settings', 'Settings', 'settings'],
+  // [slug, label, icon, super admin only]
+  ['users', 'Users', 'user', true],
+  ['settings', 'Settings', 'settings', true],
 ];
 const PAGES = new Set(NAV.map((n) => n[0]));
+const SUPER_PAGES = new Set(NAV.filter((n) => n[3]).map((n) => n[0]));
 
 function head(title, csrf = '') {
   return `<!doctype html>
@@ -97,6 +100,7 @@ const BODIES = {
   feedback: () => `<p class="text-muted">Only videos that are <strong>approved</strong> and where the customer gave <strong>consent</strong> are shown on the website.</p>${tableFrame('Add customer video')}`,
   products: () => `<p class="text-muted">No prices are shown on the website. Each product has an “Ask price on WhatsApp” button.</p>${tableFrame('Add product')}`,
   faqs: () => tableFrame('Add question'),
+  users: () => `<p class="text-muted">Super admins can do everything. Admins can only update rates, videos, customer feedback, store products and FAQs. After <strong>5 wrong passwords</strong> an account is locked until a super admin unlocks it here.</p>${tableFrame('Add user')}`,
   settings: () => `<p class="text-muted">Shown on the website straight away: phones, WhatsApp number, address, map links, opening hours, logo, the 18K / silver rate switches and the Saturday offer. Business names, email and social media links are saved here for records; the current website design has no place for them yet.</p>
 <form id="settings-form" novalidate>
   <div class="alert alert-danger d-none" role="alert" id="settings-alert"></div>
@@ -123,13 +127,14 @@ const BODIES = {
 function adminPage(page, { user, csrf }) {
   const item = NAV.find((n) => n[0] === page);
   const title = item[1];
-  const nav = NAV.map(
+  const isSuper = user.role === 'superadmin';
+  const nav = NAV.filter((n) => isSuper || !n[3]).map(
     ([slug, label, ic]) =>
       `<li><a class="adm-nav-link${slug === page ? ' active' : ''}" href="/admin/${slug}"${slug === page ? ' aria-current="page"' : ''}>${icon(ic, '', 20)}<span>${esc(label)}</span></a></li>`,
   ).join('');
   const name = user.display_name || user.username;
   return `${head(title, csrf)}
-<body class="adm" data-page="${esc(page)}">
+<body class="adm" data-page="${esc(page)}" data-role="${esc(user.role)}" data-user-id="${esc(user.id)}">
 <a class="visually-hidden-focusable adm-skip" href="#main">Skip to content</a>
 <div class="adm-shell">
   <aside class="adm-sidebar offcanvas-lg offcanvas-start" tabindex="-1" id="adm-nav" aria-labelledby="adm-brand">
@@ -146,7 +151,7 @@ function adminPage(page, { user, csrf }) {
       <button class="btn adm-menu-btn d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#adm-nav" aria-controls="adm-nav" aria-label="Open menu">${icon('menu')}</button>
       <h1 class="adm-title">${esc(title)}</h1>
       <div class="dropdown ms-auto">
-        <button class="btn adm-user dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">${icon('user', '', 18)}<span class="d-none d-sm-inline">${esc(name)}</span></button>
+        <button class="btn adm-user dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">${icon('user', '', 18)}<span class="d-none d-sm-inline">${esc(name)}</span><span class="adm-role ${isSuper ? 'super' : ''}">${isSuper ? 'Super admin' : 'Admin'}</span></button>
         <ul class="dropdown-menu dropdown-menu-end">
           <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#password-modal">${icon('key', '', 16)} Change password</button></li>
           <li><hr class="dropdown-divider"></li>
@@ -232,4 +237,4 @@ ${scripts([`/js/admin/login.js?v=${ASSET_VERSION}`])}
 </html>`;
 }
 
-module.exports = { adminPage, loginPage, ADMIN_PAGES: PAGES };
+module.exports = { adminPage, loginPage, ADMIN_PAGES: PAGES, SUPER_PAGES };

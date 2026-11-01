@@ -55,15 +55,32 @@ const faqs = makeModel({
 });
 faqs.maxOrder = () => db.one('SELECT COALESCE(MAX(sort_order), 0) AS n FROM faqs').then((r) => r.n);
 
+// Fields that are safe to send to the admin panel (never the password hash).
+const USER_FIELDS = 'id, username, display_name, role, status, failed_attempts, locked_at, last_login_at, created_at';
+
 const adminUsers = {
   count: () => db.one('SELECT COUNT(*) AS n FROM admin_users').then((r) => r.n),
+  countSuper: () => db.one("SELECT COUNT(*) AS n FROM admin_users WHERE role = 'superadmin'").then((r) => r.n),
+  list: () => db.query(`SELECT ${USER_FIELDS} FROM admin_users ORDER BY role = 'superadmin' DESC, username ASC`),
   byUsername: (username) => db.one('SELECT * FROM admin_users WHERE username = ?', [username]),
-  byId: (id) => db.one('SELECT id, username, display_name, status, last_login_at, created_at FROM admin_users WHERE id = ?', [id]),
+  byId: (id) => db.one(`SELECT ${USER_FIELDS} FROM admin_users WHERE id = ?`, [id]),
   hashById: (id) => db.one('SELECT password_hash FROM admin_users WHERE id = ?', [id]).then((r) => r && r.password_hash),
-  create: (username, passwordHash, displayName = '') =>
-    db.query('INSERT INTO admin_users (username, password_hash, display_name) VALUES (?, ?, ?)', [username, passwordHash, displayName]),
+  create: (username, passwordHash, displayName = '', role = 'admin') =>
+    db.query('INSERT INTO admin_users (username, password_hash, display_name, role) VALUES (?, ?, ?, ?)', [username, passwordHash, displayName, role]),
+  update: (id, { display_name, role }) => db.query('UPDATE admin_users SET display_name = ?, role = ? WHERE id = ?', [display_name, role, id]),
+  remove: (id) => db.query('DELETE FROM admin_users WHERE id = ?', [id]),
   setPassword: (id, passwordHash) => db.query('UPDATE admin_users SET password_hash = ? WHERE id = ?', [passwordHash, id]),
-  touchLogin: (id) => db.query('UPDATE admin_users SET last_login_at = UTC_TIMESTAMP() WHERE id = ?', [id]),
+  touchLogin: (id) => db.query('UPDATE admin_users SET last_login_at = UTC_TIMESTAMP(), failed_attempts = 0, locked_at = NULL WHERE id = ?', [id]),
+  // One more wrong password; locks the account when the limit is reached. Returns the new count.
+  async addFailure(id, limit) {
+    await db.query(
+      'UPDATE admin_users SET failed_attempts = failed_attempts + 1, locked_at = IF(failed_attempts >= ? AND locked_at IS NULL, UTC_TIMESTAMP(), locked_at) WHERE id = ?',
+      [limit, id],
+    );
+    return db.one('SELECT failed_attempts, locked_at FROM admin_users WHERE id = ?', [id]);
+  },
+  lock: (id) => db.query('UPDATE admin_users SET locked_at = UTC_TIMESTAMP() WHERE id = ?', [id]),
+  unlock: (id) => db.query('UPDATE admin_users SET locked_at = NULL, failed_attempts = 0 WHERE id = ?', [id]),
 };
 
 const loginAttempts = {
