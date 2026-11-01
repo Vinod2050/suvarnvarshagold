@@ -36,8 +36,13 @@ Settings to enter: see `deploy/godaddy-env.txt`.
 
 - **Super admin** (Users page): add, edit, remove users, reset passwords, lock and unlock accounts.
 - **Admin**: Dashboard, Gold rates, Advertisements, Customer feedback, Store products and FAQs only.
-- **5 wrong passwords** lock an account until a super admin unlocks it (Users page → Unlock).
+- Wrong passwords in a row: after **3** wait 1 minute, after **5** wait 5 minutes, after **8** the account
+  is locked until a super admin unlocks it (Users page → Unlock). The sign-in button counts down the wait.
   A super admin who locks themselves out is unlocked automatically after 15 minutes.
+- **Make an existing account a super admin** (e.g. `admin`): add the setting `MAKE_SUPERADMIN` = `admin`
+  (several names: comma-separated) and save. On restart the log shows
+  `Account "admin" is now a super admin (full access, unlocked)`. No password is needed; the password
+  stays the same. The setting can stay or be deleted afterwards.
 - Lost the last super admin password: `npm run create-admin -- superadmin --super` (hosting terminal),
   or ask the developer.
 

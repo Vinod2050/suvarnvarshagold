@@ -28,6 +28,29 @@
     if (!on && spin) spin.remove();
   }
 
+  // After too many wrong passwords: keep the button off and count down until the next try is allowed.
+  var timer = null;
+  function countdown(btn, seconds) {
+    var label = btn.querySelector('.lg-btn-label');
+    var end = Date.now() + seconds * 1000;
+    clearInterval(timer);
+    btn.disabled = true;
+    function tick() {
+      var left = Math.ceil((end - Date.now()) / 1000);
+      if (left <= 0) {
+        clearInterval(timer);
+        btn.disabled = false;
+        label.textContent = btn.dataset.label;
+        return;
+      }
+      var m = Math.floor(left / 60);
+      var sec = left % 60;
+      label.textContent = 'Try again in ' + m + ':' + (sec < 10 ? '0' : '') + sec;
+    }
+    tick();
+    timer = setInterval(tick, 1000);
+  }
+
   function wire(form, alertEl, url, read, busyText) {
     form.addEventListener('submit', function (e) {
       e.preventDefault();
@@ -38,7 +61,11 @@
       busy(btn, true, busyText);
       post(url, body)
         .then(function () { window.location.href = '/admin/dashboard'; })
-        .catch(function (err) { busy(btn, false); SV.showErrors(form, err, alertEl); });
+        .catch(function (err) {
+          busy(btn, false);
+          SV.showErrors(form, err, alertEl);
+          if (err && err.retry_after) countdown(btn, err.retry_after);
+        });
     });
   }
 

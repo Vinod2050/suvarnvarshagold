@@ -1,10 +1,11 @@
 // One response shape for every API: { ok: true, data } or { ok: false, error, fields }.
 
 class AppError extends Error {
-  constructor(status, message, fields) {
+  constructor(status, message, fields, retryAfter) {
     super(message);
     this.status = status;
     this.fields = fields;
+    this.retryAfter = retryAfter; // seconds; sent as Retry-After and retry_after
   }
 }
 

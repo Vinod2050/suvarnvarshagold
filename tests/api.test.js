@@ -170,7 +170,7 @@ async function main() {
     return { status: r.status, json: await r.json(), jar: setCookie ? setCookie.split(';')[0] : jar };
   }
 
-  await test('users: super admin adds a user; 5 wrong passwords lock it; super admin unlocks; roles limit access', async () => {
+  await test('users: super admin adds a user; wrong passwords wait 1 / 5 minutes, 8 lock it; super admin unlocks; roles limit access', async () => {
     const me = await call('GET', '/api/auth/me');
     assert.equal(me.data.user.role, 'superadmin', 'the first admin (setup) is a super admin');
     const short = await call('POST', '/api/admin/users', { body: { username: 'staff1', password: 'short', role: 'admin' } });
@@ -182,22 +182,47 @@ async function main() {
     const dup = await call('POST', '/api/admin/users', { body: { username: 'staff1', password: 'Staff-Pass-1' } });
     assert.equal(dup.status, 400);
 
-    // 4 wrong passwords: still open, with a warning; the 5th locks the account
-    for (let i = 1; i <= 4; i += 1) {
-      const w = await separateLogin('staff1', 'wrong-pass', `198.51.100.${i}`);
-      assert.equal(w.status, 401);
-      assert.match(w.json.error, new RegExp(`${5 - i} tr(y|ies) left`));
+    // Wrong passwords in a row: 1-2 warn, 3-4 wait 1 minute, 5-7 wait 5 minutes, the 8th locks.
+    // The waits are skipped by moving the last wrong try back in the TEST database.
+    const testDb = await require('mysql2/promise').createConnection({ ...require('../src/config/env').db, connectionLimit: undefined, timezone: 'Z' });
+    const age = (seconds) => testDb.query('UPDATE admin_users SET last_failed_at = last_failed_at - INTERVAL ? SECOND WHERE username = ?', [seconds, 'staff1']);
+    let n = 0;
+    const wrong = () => separateLogin('staff1', 'wrong-pass', `198.51.100.${(n += 1)}`);
+    for (let i = 1; i <= 2; i += 1) {
+      const w = await wrong();
+      assert.equal(w.status, 401, JSON.stringify(w.json));
+      assert.match(w.json.error, new RegExp(`${8 - i} more wrong passwords lock`));
     }
-    const fifth = await separateLogin('staff1', 'wrong-pass', '198.51.100.5');
-    assert.equal(fifth.status, 423, 'locked on the 5th wrong password');
-    const right = await separateLogin('staff1', 'Staff-Pass-1', '198.51.100.6');
+    const third = await wrong();
+    assert.equal(third.status, 429, 'the 3rd wrong password starts a wait');
+    assert.equal(third.json.retry_after, 60, '1 minute');
+    const early = await separateLogin('staff1', 'Staff-Pass-1', '198.51.100.50');
+    assert.equal(early.status, 429, 'even the right password waits');
+    assert.ok(early.json.retry_after > 0 && early.json.retry_after <= 60);
+    await age(61);
+    assert.equal((await wrong()).json.retry_after, 60, '4th: 1 minute');
+    await age(61);
+    const fifth = await wrong();
+    assert.equal(fifth.status, 429);
+    assert.equal(fifth.json.retry_after, 300, '5th: 5 minutes');
+    await age(61);
+    assert.equal((await separateLogin('staff1', 'wrong-pass', '198.51.100.51')).json.retry_after > 200, true, 'still waiting after 1 minute');
+    for (let i = 6; i <= 7; i += 1) {
+      await age(301);
+      assert.equal((await wrong()).json.retry_after, 300, `${i}th: 5 minutes`);
+    }
+    await age(301);
+    const eighth = await wrong();
+    assert.equal(eighth.status, 423, 'locked on the 8th wrong password');
+    await testDb.end();
+    const right = await separateLogin('staff1', 'Staff-Pass-1', '198.51.100.60');
     assert.equal(right.status, 423, 'even the right password is refused while locked');
     const listed = await call('GET', '/api/admin/users');
     assert.ok(listed.data.items.find((u) => u.id === staff.id).locked_at, 'shown as locked');
 
     // super admin unlocks; the user can sign in, but only with admin (limited) access
     assert.equal((await call('PATCH', `/api/admin/users/${staff.id}/lock`, { body: { locked: false } })).ok, true);
-    const ok = await separateLogin('staff1', 'Staff-Pass-1', '198.51.100.7');
+    const ok = await separateLogin('staff1', 'Staff-Pass-1', '198.51.100.61');
     assert.equal(ok.status, 200, JSON.stringify(ok.json));
     const asStaff = (method, path, body) =>
       fetch(BASE + path, { method, headers: { Origin: BASE, Cookie: ok.jar, 'X-CSRF-Token': ok.json.data.csrfToken, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
@@ -216,7 +241,7 @@ async function main() {
     // reset password also unlocks; guards on own account and the last super admin
     const reset = await call('PUT', `/api/admin/users/${staff.id}/password`, { body: { new_password: 'New-Staff-Pass-2' } });
     assert.equal(reset.data.locked_at, null);
-    assert.equal((await separateLogin('staff1', 'New-Staff-Pass-2', '198.51.100.8')).status, 200);
+    assert.equal((await separateLogin('staff1', 'New-Staff-Pass-2', '198.51.100.62')).status, 200);
     assert.equal((await call('DELETE', `/api/admin/users/${me.data.user.id}`)).status, 403, 'cannot remove yourself');
     assert.equal((await call('PATCH', `/api/admin/users/${me.data.user.id}/lock`, { body: { locked: true } })).status, 403, 'cannot lock yourself');
     assert.equal((await call('PUT', `/api/admin/users/${me.data.user.id}`, { body: { role: 'admin' } })).status, 403, 'cannot demote yourself');

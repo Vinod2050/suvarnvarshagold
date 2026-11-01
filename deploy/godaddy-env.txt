@@ -38,7 +38,14 @@ Not needed on GoDaddy (the app handles them itself):
 
 Do not upload a .env file: GoDaddy's Secrets card is the right place, and the ZIP does not contain one.
 
-5) SUPER ADMIN PASSWORD NOT WORKING / FORGOTTEN (emergency reset):
+5) MAKE AN EXISTING ACCOUNT A SUPER ADMIN (full access: users, lock / unlock, settings):
+
+   MAKE_SUPERADMIN = admin      (several names: comma-separated)
+
+   Save (the app restarts). The log shows: Account "admin" is now a super admin (full access, unlocked).
+   The password does not change. The setting can stay or be deleted.
+
+6) SUPER ADMIN PASSWORD NOT WORKING / FORGOTTEN (emergency reset):
 
    SUPERADMIN_PASSWORD        = <the new password, typed by hand - not browser autofill>
    RESET_SUPERADMIN_PASSWORD  = yes

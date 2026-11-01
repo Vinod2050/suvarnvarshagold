@@ -73,16 +73,17 @@ incl. Users and Settings) and `ADMIN_PASSWORD` → **admin** (rates, videos, fee
 Change passwords after the first sign-in (top-right menu → Change password, 12+ characters).
 
 The super admin manages users on the **Users** page: add, edit access, reset password, lock / unlock,
-remove. **5 wrong passwords lock an account** until a super admin unlocks it (a super admin who locks
-themselves out is unlocked after 15 minutes). `npm run create-admin -- <name> --super` creates or
+remove. Wrong passwords in a row: **3 → wait 1 minute, 5 → wait 5 minutes, 8 → account locked** until a
+super admin unlocks it (a super admin who locks themselves out is unlocked after 15 minutes).
+`MAKE_SUPERADMIN=admin` makes an existing account a super admin on start (no password needed). `npm run create-admin -- <name> --super` creates or
 resets a super admin from the hosting terminal.
 
 - More admins or a forgotten password: `npm run create-admin` in the app folder (hosting terminal / SSH).
 - The one-time setup screen (`SETUP_TOKEN`) is only used if a database has no admin at all.
 
 Security: bcrypt (cost 12), session cookie HttpOnly + SameSite=Strict (+ Secure over HTTPS in production),
-sessions stored in MySQL, CSRF token on every admin change, 5 wrong passwords → account locked
-until a super admin unlocks it, roles (super admin / admin) checked on the server,
+sessions stored in MySQL, CSRF token on every admin change, wrong passwords → 1- and 5-minute waits, then
+account locked until a super admin unlocks it, roles (super admin / admin) checked on the server,
 rate limits on login and the API, salted SHA-256 IP hashes only, strict Content-Security-Policy.
 
 ## What the admin controls on the website

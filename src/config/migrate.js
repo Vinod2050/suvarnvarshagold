@@ -20,7 +20,8 @@ const MIN_PASSWORD = 8;
 const COLUMNS = [
   ['admin_users', 'role', "ENUM('superadmin','admin') NOT NULL DEFAULT 'admin' AFTER display_name"],
   ['admin_users', 'failed_attempts', 'INT UNSIGNED NOT NULL DEFAULT 0 AFTER status'],
-  ['admin_users', 'locked_at', 'DATETIME NULL AFTER failed_attempts'],
+  ['admin_users', 'last_failed_at', 'DATETIME NULL AFTER failed_attempts'],
+  ['admin_users', 'locked_at', 'DATETIME NULL AFTER last_failed_at'],
 ];
 
 async function addMissingColumns(conn) {
@@ -65,13 +66,28 @@ async function resetSuperAdmin(conn) {
   if (password.length < MIN_PASSWORD) throw new Error(`RESET_SUPERADMIN_PASSWORD needs SUPERADMIN_PASSWORD with at least ${MIN_PASSWORD} characters.`);
   const hash = await bcrypt.hash(password, 12);
   const [res] = await conn.query(
-    "UPDATE admin_users SET password_hash = ?, role = 'superadmin', status = 'active', failed_attempts = 0, locked_at = NULL WHERE username = ?",
+    "UPDATE admin_users SET password_hash = ?, role = 'superadmin', status = 'active', failed_attempts = 0, last_failed_at = NULL, locked_at = NULL WHERE username = ?",
     [hash, username],
   );
   if (!res.affectedRows) {
     await conn.query("INSERT INTO admin_users (username, password_hash, display_name, role, status) VALUES (?, ?, 'Super admin', 'superadmin', 'active')", [username, hash]);
   }
   return username;
+}
+
+// MAKE_SUPERADMIN=admin (comma-separated names): those existing accounts get full super admin access
+// and are unlocked, on every start. No password is involved; the setting can stay or be removed.
+async function promoteSuperAdmins(conn) {
+  const names = String(process.env.MAKE_SUPERADMIN || '').split(',').map((n) => n.trim()).filter(Boolean);
+  const done = [];
+  for (const name of names) {
+    const [res] = await conn.query(
+      "UPDATE admin_users SET role = 'superadmin', status = 'active', failed_attempts = 0, last_failed_at = NULL, locked_at = NULL WHERE username = ? AND (role <> 'superadmin' OR locked_at IS NOT NULL OR status <> 'active')",
+      [name],
+    );
+    if (res.affectedRows) done.push(name);
+  }
+  return done;
 }
 
 async function migrate() {
@@ -86,6 +102,7 @@ async function migrate() {
     const created = [];
     const reset = await resetSuperAdmin(conn);
     if (reset) created.push(`Password of super admin "${reset}" set from SUPERADMIN_PASSWORD (account unlocked) - now REMOVE the RESET_SUPERADMIN_PASSWORD setting`);
+    for (const name of await promoteSuperAdmins(conn)) created.push(`Account "${name}" is now a super admin (full access, unlocked)`);
     const superUser = await createAccount(conn, { role: 'superadmin', usernameVar: 'SUPERADMIN_USERNAME', passwordVar: 'SUPERADMIN_PASSWORD', defaultUsername: 'superadmin' });
     if (superUser) created.push(`Account created: super admin "${superUser}"`);
     const adminUser = await createAccount(conn, { role: 'admin', usernameVar: 'ADMIN_USERNAME', passwordVar: 'ADMIN_PASSWORD', defaultUsername: 'admin' });

@@ -3,7 +3,7 @@
 const { esc } = require('./util');
 const { icon } = require('./icons');
 // Bump to make browsers fetch new admin CSS/JS after a change.
-const ASSET_VERSION = '12';
+const ASSET_VERSION = '13';
 
 const NAV = [
   ['dashboard', 'Dashboard', 'layout'],
@@ -100,7 +100,7 @@ const BODIES = {
   feedback: () => `<p class="text-muted">Only videos that are <strong>approved</strong> and where the customer gave <strong>consent</strong> are shown on the website.</p>${tableFrame('Add customer video')}`,
   products: () => `<p class="text-muted">No prices are shown on the website. Each product has an “Ask price on WhatsApp” button.</p>${tableFrame('Add product')}`,
   faqs: () => tableFrame('Add question'),
-  users: () => `<p class="text-muted">Super admins can do everything. Admins can only update rates, videos, customer feedback, store products and FAQs. After <strong>5 wrong passwords</strong> an account is locked until a super admin unlocks it here.</p>${tableFrame('Add user')}`,
+  users: () => `<p class="text-muted">Super admins can do everything. Admins can only update rates, videos, customer feedback, store products and FAQs. Wrong passwords in a row: after <strong>3</strong> the user waits 1 minute, after <strong>5</strong> 5 minutes, and after <strong>8</strong> the account is locked until a super admin unlocks it here.</p>${tableFrame('Add user')}`,
   settings: () => `<p class="text-muted">Shown on the website straight away: phones, WhatsApp number, address, map links, opening hours, logo, the 18K / silver rate switches and the Saturday offer. Business names, email and social media links are saved here for records; the current website design has no place for them yet.</p>
 <form id="settings-form" novalidate>
   <div class="alert alert-danger d-none" role="alert" id="settings-alert"></div>

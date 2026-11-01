@@ -8,9 +8,10 @@ const { badRequest, forbidden, tooMany, AppError } = require('../utils/response'
 const { safeEqual } = require('../utils/security');
 
 const BCRYPT_COST = 12;
-const MAX_FAILS = 5; // wrong passwords in a row before the account is locked
-const MAX_IP_FAILS = 20; // wrong tries per device in LOCK_MINUTES, any username
-const LOCK_MINUTES = 15;
+const WAITS = [[5, 5], [3, 1]]; // [wrong passwords in a row, minutes to wait], biggest first
+const LOCK_AFTER = 8; // wrong passwords in a row before the account is locked
+const MAX_IP_FAILS = 20; // wrong tries per device in IP_WINDOW_MINUTES, any username
+const IP_WINDOW_MINUTES = 15;
 const SUPER_LOCK_MINUTES = 15; // a locked super admin is unlocked automatically after this
 const MIN_PASSWORD = 12;
 // Compared against when the username does not exist, so the reply takes the same time either way.
@@ -52,16 +53,41 @@ async function setup(body) {
   return { id: user.id, username: user.username };
 }
 
-// Sign-in rules:
-// - 5 wrong passwords in a row lock the ACCOUNT. Only a super admin can unlock it (Users page).
+// Sign-in rules, per account (wrong passwords in a row; a correct password resets the count):
+// - after 3 wrong passwords: wait 1 minute before the next try
+// - after 5 wrong passwords: wait 5 minutes before each further try
+// - after 8 wrong passwords: the account is locked. Only a super admin can unlock it (Users page).
 //   A super admin who locks themselves out is unlocked automatically after SUPER_LOCK_MINUTES,
 //   because nobody else may be able to unlock them.
-// - Per device (IP hash): at most MAX_IP_FAILS wrong tries in LOCK_MINUTES, for any usernames.
+// While a wait runs, tries are refused without checking the password.
+// Per device (IP hash): at most MAX_IP_FAILS wrong tries in IP_WINDOW_MINUTES, for any usernames.
+function waitMinutes(fails) {
+  for (const [count, minutes] of WAITS) if (fails >= count) return minutes;
+  return 0;
+}
+
+// Seconds the account must still wait before the next try (0 = may try now).
+function waitLeft(user) {
+  const minutes = waitMinutes(user.failed_attempts);
+  if (!minutes || !user.last_failed_at) return 0;
+  const left = minutes * 60 - (Date.now() - new Date(user.last_failed_at).getTime()) / 1000;
+  return left > 0 ? Math.ceil(left) : 0;
+}
+
+function inWords(seconds) {
+  if (seconds < 60) return `${seconds} second${seconds === 1 ? '' : 's'}`;
+  const m = Math.ceil(seconds / 60);
+  return `${m} minute${m === 1 ? '' : 's'}`;
+}
+
+const lockedNote = (user, minutesLeft) =>
+  user.role === 'superadmin' ? ` It unlocks by itself in ${minutesLeft} minute${minutesLeft === 1 ? '' : 's'}.` : ' Please ask the super admin to unlock it.';
+
 async function login(body, ipHash) {
   const clean = validate(body, { username: { type: 'string', required: true, max: 50 }, password: { type: 'text', required: true, max: 128 } });
-  const recent = await loginAttempts.recent(ipHash, clean.username, LOCK_MINUTES);
+  const recent = await loginAttempts.recent(ipHash, clean.username, IP_WINDOW_MINUTES);
   if (recent.by_ip >= MAX_IP_FAILS) {
-    throw tooMany(`Too many wrong tries from this device. Please wait ${LOCK_MINUTES} minutes and try again.`);
+    throw new AppError(429, `Too many wrong tries from this device. Please wait ${IP_WINDOW_MINUTES} minutes and try again.`, undefined, IP_WINDOW_MINUTES * 60);
   }
   const user = await adminUsers.byUsername(clean.username);
   if (user && user.locked_at) {
@@ -70,23 +96,29 @@ async function login(body, ipHash) {
       await adminUsers.unlock(user.id);
       user.locked_at = null;
       user.failed_attempts = 0;
+      user.last_failed_at = null;
     } else {
-      const wait = user.role === 'superadmin' ? ` It unlocks by itself in ${Math.ceil(SUPER_LOCK_MINUTES - minutes)} minutes.` : ' Please ask the super admin to unlock it.';
-      throw new AppError(423, `This account is locked after ${MAX_FAILS} wrong passwords.${wait}`);
+      throw new AppError(423, `This account is locked after ${LOCK_AFTER} wrong passwords.${lockedNote(user, Math.ceil(SUPER_LOCK_MINUTES - minutes))}`);
     }
+  }
+  if (user) {
+    const left = waitLeft(user);
+    if (left) throw new AppError(429, `Too many wrong passwords. Please wait ${inWords(left)} and try again.`, undefined, left);
   }
   const match = await bcrypt.compare(clean.password, user ? user.password_hash : DUMMY_HASH);
   if (!user || !match || user.status !== 'active') {
     await loginAttempts.add(ipHash, clean.username);
     if (user && !match) {
-      const r = await adminUsers.addFailure(user.id, MAX_FAILS);
+      const r = await adminUsers.addFailure(user.id, LOCK_AFTER);
       if (r.locked_at) {
-        await activity.add(user.id, 'lock', 'account', user.id, `Locked after ${MAX_FAILS} wrong passwords`);
-        const how = user.role === 'superadmin' ? ` It unlocks by itself in ${SUPER_LOCK_MINUTES} minutes.` : ' Please ask the super admin to unlock it.';
-        throw new AppError(423, `Too many wrong passwords: this account is now locked.${how}`);
+        await activity.add(user.id, 'lock', 'account', user.id, `Locked after ${LOCK_AFTER} wrong passwords`);
+        throw new AppError(423, `Too many wrong passwords: this account is now locked.${lockedNote(user, SUPER_LOCK_MINUTES)}`);
       }
-      const left = MAX_FAILS - r.failed_attempts;
-      throw new AppError(401, `Username or password is not correct. ${left} ${left === 1 ? 'try' : 'tries'} left before the account is locked.`);
+      const toLock = LOCK_AFTER - r.failed_attempts;
+      const lockNote = `${toLock} more wrong ${toLock === 1 ? 'password locks' : 'passwords lock'} the account.`;
+      const wait = waitMinutes(r.failed_attempts) * 60;
+      if (wait) throw new AppError(429, `Username or password is not correct. Please wait ${inWords(wait)} before the next try. ${lockNote}`, undefined, wait);
+      throw new AppError(401, `Username or password is not correct. ${lockNote}`);
     }
     throw new AppError(401, 'Username or password is not correct');
   }
@@ -110,4 +142,4 @@ async function changePassword(adminId, body) {
   await activity.add(adminId, 'password', 'account', adminId, 'Password changed');
 }
 
-module.exports = { status, setup, login, changePassword, hashPassword, checkUsername, MIN_PASSWORD };
+module.exports = { status, setup, login, changePassword, hashPassword, checkUsername, MIN_PASSWORD, LOCK_AFTER };

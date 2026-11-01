@@ -5,7 +5,7 @@
 
 SET NAMES utf8mb4;
 
--- Admin users (passwords are bcrypt hashes). Older databases get the role / failed_attempts / locked_at
+-- Admin users (passwords are bcrypt hashes). Older databases get the role / failed_attempts / last_failed_at / locked_at
 -- columns added on start by src/config/migrate.js.
 CREATE TABLE IF NOT EXISTS admin_users (
   id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS admin_users (
   role           ENUM('superadmin','admin') NOT NULL DEFAULT 'admin',  -- superadmin: everything incl. users and settings
   status         ENUM('active','disabled') NOT NULL DEFAULT 'active',
   failed_attempts INT UNSIGNED NOT NULL DEFAULT 0,   -- wrong passwords in a row
-  locked_at      DATETIME NULL,                     -- set after 5 wrong passwords; a super admin unlocks
+  last_failed_at DATETIME NULL,                     -- time of the last wrong password (for the wait timers)
+  locked_at      DATETIME NULL,                     -- set after 8 wrong passwords in a row; a super admin unlocks
   last_login_at  DATETIME NULL,
   created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -145,7 +146,7 @@ CREATE TABLE IF NOT EXISTS activity_logs (
   CONSTRAINT fk_activity_admin FOREIGN KEY (admin_id) REFERENCES admin_users (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Failed sign-ins, for the 15-minute lock after 5 wrong tries
+-- Failed sign-ins per device (at most 20 wrong tries in 15 minutes)
 CREATE TABLE IF NOT EXISTS login_attempts (
   id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   ip_hash         CHAR(64) NOT NULL,

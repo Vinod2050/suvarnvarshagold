@@ -16,11 +16,12 @@ function errorHandler(err, req, res, next) {
   let status = 500;
   let error = 'Something went wrong. Please try again.';
   let fields;
+  let retryAfter;
 
   if (err instanceof AppError) {
     ({ status } = err);
     error = err.message;
-    ({ fields } = err);
+    ({ fields, retryAfter } = err);
   } else if (err.name === 'MulterError') {
     status = 400;
     error = err.code === 'LIMIT_FILE_SIZE' ? 'The image is too large (2 MB maximum)' : 'Could not read the uploaded file';
@@ -40,7 +41,8 @@ function errorHandler(err, req, res, next) {
   if (!req.path.startsWith('/api/') && status >= 500) {
     return res.status(status).type('text/plain').send('Sorry, something went wrong. Please try again later.');
   }
-  return res.status(status).json({ ok: false, error, ...(fields ? { fields } : {}) });
+  if (retryAfter) res.set('Retry-After', String(retryAfter));
+  return res.status(status).json({ ok: false, error, ...(fields ? { fields } : {}), ...(retryAfter ? { retry_after: retryAfter } : {}) });
 }
 
 module.exports = { errorHandler, notFoundHandler };

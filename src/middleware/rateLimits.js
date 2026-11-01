@@ -1,5 +1,5 @@
 // Request limits per visitor (kept in memory). The database also enforces the important ones
-// (5 wrong logins -> 15 min lock), so they still hold if the app restarts.
+// (wrong-password waits and account lock), so they still hold if the app restarts.
 const rateLimit = require('express-rate-limit');
 
 const message = (text) => ({ ok: false, error: text });
