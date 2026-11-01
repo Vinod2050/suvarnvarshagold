@@ -1,0 +1,29 @@
+/* Extras for the static (HTML/CSS/JS) version. Everything else is in site.css, copied from the Next.js build. */
+template { display: none; }
+/* Scroll-in animations: show everything when JavaScript is off */
+.no-js [style*="opacity:0"] { opacity: 1 !important; transform: none !important; }
+
+/* YouTube videos (home page): thumbnail with a gold play button; the player loads on tap (site.js) */
+.sv-yt { position: relative; aspect-ratio: 16 / 9; background: #1A1417; }
+.sv-yt-short { aspect-ratio: 3 / 4; }
+.sv-yt-btn { position: absolute; inset: 0; display: block; width: 100%; height: 100%; padding: 0; border: 0; background: none; cursor: pointer; }
+.sv-yt-btn img, .sv-yt iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; object-fit: cover; }
+.sv-yt-icon {
+  position: absolute; left: 50%; top: 50%; display: grid; place-items: center; width: 64px; height: 64px;
+  border-radius: 50%; transform: translate(-50%, -50%); background: rgba(26, 20, 23, .8); color: #F3DF63;
+  box-shadow: 0 0 0 2px rgba(243, 223, 99, .75), 0 8px 24px rgba(0, 0, 0, .4); transition: transform .2s, background-color .2s;
+}
+.sv-yt-icon svg { width: 26px; height: 26px; margin-left: 4px; fill: currentColor; }
+.sv-yt-btn:hover .sv-yt-icon, .sv-yt-btn:focus-visible .sv-yt-icon { transform: translate(-50%, -50%) scale(1.08); background: #2E2327; }
+.sv-yt-btn:focus-visible { outline: 3px solid #E2C943; outline-offset: -3px; }
+@media (prefers-reduced-motion: reduce) { .sv-yt-icon { transition: none; } }
+
+/* "How it works" on the home page has 5 steps: on 2-column screens the last card fills the row */
+@media (min-width: 640px) and (max-width: 1023.98px) { .steps-last-wide { grid-column: span 2 / span 2; } }
+
+/* Call + WhatsApp button pairs: same size on every page and section.
+   Phones: side by side at equal width, stacked full width if they do not fit.
+   Tablet/desktop: equal width (max 10.5rem), labels never wrap. Height is always 48px. */
+.cta-pair { display: flex; flex-flow: row wrap; gap: .75rem; width: 100%; }
+.cta-pair > a { flex: 1 1 0; min-width: max-content; min-height: 3rem; padding: .75rem; white-space: nowrap; }
+@media (min-width: 640px) { .cta-pair > a { max-width: 10.5rem; padding-inline: 1rem; } }

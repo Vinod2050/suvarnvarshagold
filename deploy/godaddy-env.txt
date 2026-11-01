@@ -1,0 +1,37 @@
+Suvarnavarsha Gold - settings for GoDaddy (Node.js app -> Secrets / Environment variables)
+=========================================================================================
+
+1) SET BY GODADDY AUTOMATICALLY when the hosted MySQL database is attached.
+   Do NOT add, change or override these yourself - just check they are listed in the Secrets card:
+
+   DB_HOST
+   DB_PORT
+   DB_NAME
+   DB_USER
+   DB_PASSWORD
+
+
+2) ADD NOW (two settings):
+
+   NODE_ENV       = production
+   ADMIN_PASSWORD = <the admin password you chose, 8+ characters - keep it private>
+
+   On first start the app creates the admin account "admin" with this password (only if no admin exists;
+   it never overwrites one). Change the password from the admin menu after signing in; the setting can
+   then be deleted. Optional: ADMIN_USERNAME = <name> (default: admin).
+
+
+3) ADD LATER, when the domain is connected (no slash at the end):
+
+   SITE_URL = https://suvarnvarshagold.com
+
+
+4) OPTIONAL - only if the troubleshooting steps in DEPLOY-GODADDY.md tell you to:
+
+   AUTO_MIGRATE = false        (only after importing database/setup-all.sql by hand)
+
+
+Not needed on GoDaddy (the app handles them itself):
+   PORT, HOST, SESSION_SECRET, IP_HASH_SALT, SETUP_TOKEN, TRUST_PROXY (default 1 is right)
+
+Do not upload a .env file: GoDaddy's Secrets card is the right place, and the ZIP does not contain one.
