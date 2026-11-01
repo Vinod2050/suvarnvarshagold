@@ -37,3 +37,12 @@ Not needed on GoDaddy (the app handles them itself):
    PORT, HOST, SESSION_SECRET, IP_HASH_SALT, SETUP_TOKEN, TRUST_PROXY (default 1 is right)
 
 Do not upload a .env file: GoDaddy's Secrets card is the right place, and the ZIP does not contain one.
+
+5) SUPER ADMIN PASSWORD NOT WORKING / FORGOTTEN (emergency reset):
+
+   SUPERADMIN_PASSWORD        = <the new password, typed by hand - not browser autofill>
+   RESET_SUPERADMIN_PASSWORD  = yes
+
+   Save (the app restarts). The log shows: Password of super admin "superadmin" set from SUPERADMIN_PASSWORD
+   (account unlocked). Sign in, then DELETE the RESET_SUPERADMIN_PASSWORD row - otherwise every restart
+   sets the password again.

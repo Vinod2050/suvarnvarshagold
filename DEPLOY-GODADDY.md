@@ -77,3 +77,13 @@ admin panel cannot sign in.
 
 Build a new ZIP (`npm run zip`) and upload it. Everything the admin changes (rates, videos, products,
 photos, FAQs, settings, admin accounts) is in the database, so nothing is lost when the app files are replaced.
+
+## Super admin password not working or forgotten
+
+The password settings only create accounts; they never change an existing one. To set the super admin
+password again (this also unlocks the account):
+
+1. In Secrets, type the new password by hand into `SUPERADMIN_PASSWORD` (browser autofill is not picked up),
+   and add `RESET_SUPERADMIN_PASSWORD` = `yes`. Save.
+2. The log shows `Password of super admin "superadmin" set from SUPERADMIN_PASSWORD (account unlocked)`.
+3. Sign in, then **delete** `RESET_SUPERADMIN_PASSWORD` (otherwise every restart sets the password again).

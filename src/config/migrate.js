@@ -55,6 +55,25 @@ async function createAccount(conn, { role, usernameVar, passwordVar, defaultUser
   return username;
 }
 
+// Emergency reset: with RESET_SUPERADMIN_PASSWORD=yes the super admin account (SUPERADMIN_USERNAME,
+// default "superadmin") gets the password from SUPERADMIN_PASSWORD on start and is unlocked; it is
+// created if missing. Remove the switch after signing in, otherwise every restart sets it again.
+async function resetSuperAdmin(conn) {
+  if (String(process.env.RESET_SUPERADMIN_PASSWORD || '').toLowerCase() !== 'yes') return null;
+  const password = process.env.SUPERADMIN_PASSWORD || '';
+  const username = (process.env.SUPERADMIN_USERNAME || 'superadmin').trim();
+  if (password.length < MIN_PASSWORD) throw new Error(`RESET_SUPERADMIN_PASSWORD needs SUPERADMIN_PASSWORD with at least ${MIN_PASSWORD} characters.`);
+  const hash = await bcrypt.hash(password, 12);
+  const [res] = await conn.query(
+    "UPDATE admin_users SET password_hash = ?, role = 'superadmin', status = 'active', failed_attempts = 0, locked_at = NULL WHERE username = ?",
+    [hash, username],
+  );
+  if (!res.affectedRows) {
+    await conn.query("INSERT INTO admin_users (username, password_hash, display_name, role, status) VALUES (?, ?, 'Super admin', 'superadmin', 'active')", [username, hash]);
+  }
+  return username;
+}
+
 async function migrate() {
   const skipped = String(process.env.AUTO_MIGRATE || '').toLowerCase() === 'false';
   const files = ['schema.sql', 'seed.sql'].map((f) => path.join(env.root, 'database', f));
@@ -65,10 +84,12 @@ async function migrate() {
     if (!skipped) for (const file of files) await conn.query(fs.readFileSync(file, 'utf8'));
     await addMissingColumns(conn);
     const created = [];
+    const reset = await resetSuperAdmin(conn);
+    if (reset) created.push(`Password of super admin "${reset}" set from SUPERADMIN_PASSWORD (account unlocked) - now REMOVE the RESET_SUPERADMIN_PASSWORD setting`);
     const superUser = await createAccount(conn, { role: 'superadmin', usernameVar: 'SUPERADMIN_USERNAME', passwordVar: 'SUPERADMIN_PASSWORD', defaultUsername: 'superadmin' });
-    if (superUser) created.push(`super admin "${superUser}"`);
+    if (superUser) created.push(`Account created: super admin "${superUser}"`);
     const adminUser = await createAccount(conn, { role: 'admin', usernameVar: 'ADMIN_USERNAME', passwordVar: 'ADMIN_PASSWORD', defaultUsername: 'admin' });
-    if (adminUser) created.push(`admin "${adminUser}"`);
+    if (adminUser) created.push(`Account created: admin "${adminUser}"`);
     const [[counts]] = await conn.query("SELECT COUNT(*) AS admins, SUM(role = 'superadmin') AS supers FROM admin_users");
     return { skipped, created, admins: Number(counts.admins), supers: Number(counts.supers || 0) };
   } finally {
