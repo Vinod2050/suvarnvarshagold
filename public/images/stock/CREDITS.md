@@ -20,6 +20,7 @@ no attribution required). Replace with the client's own photos before launch.
 The product photos show other mints' coins and bars. They stand in for the dummy products on
 the store page and for the Buy 24K Gold hero slides, until the client's own coin and bar photos arrive.
 
-`model-bridal`, `model-pink`, `model-green-silk` and `model-purple` (home and About slideshows, "Who we are",
-Contact photo) were supplied by Finixsoft on 2026-11-05 (full-size originals in `originals/models/`, not in git). They are models for decoration only: never caption them as customers or put a
+`model-*-cut.webp` (home and About hero slides, background removed, edges faded) and the full photos `model-purple` ("Who we are")
+and `model-bridal` (Contact)
+were supplied by Finixsoft on 2026-11-05 (full-size originals in `originals/models/`, not in git). They are models for decoration only: never caption them as customers or put a
 review beside them (CLAUDE.md 8.3).
