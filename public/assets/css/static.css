@@ -28,14 +28,15 @@ template { display: none; }
 .cta-pair > a { flex: 1 1 0; min-width: max-content; min-height: 3rem; padding: .75rem; white-space: nowrap; }
 @media (min-width: 640px) { .cta-pair > a { max-width: 10.5rem; padding-inline: 1rem; } }
 
-/* "Who we are" (About page): cut-out model in a plum arch with a thin gold border.
-   The image is made for this 4:5 frame, so the whole face fits on every screen size. */
+/* "Who we are" (About page): the photo (own background, extended above the head) in an arch
+   with a thin gold border. The image is made for this 4:5 frame, so the whole face fits on every screen. */
 .sv-who-frame {
-  aspect-ratio: 4 / 5; overflow: hidden; background: #2E2327;
+  aspect-ratio: 4 / 5; overflow: hidden;
   border: 2px solid #C2A52E;
   border-radius: 50% 50% 1.25rem 1.25rem / 40% 40% 1.25rem 1.25rem;
   box-shadow: 0 0 0 6px rgba(194, 165, 46, .15), 0 18px 44px rgba(46, 35, 39, .28);
 }
-.sv-who-img { object-fit: cover; object-position: 50% 100%; }
-/* Contact hero photo: keep the model's face in view when the wide box crops a tall photo */
-.sv-photo-top { object-position: 50% 12%; }
+.sv-who-img { object-fit: cover; object-position: 50% 0; }
+/* Contact hero: the bridal cut-out (same as the home hero) stands on the bottom of the gold box;
+   a little space at the top so the head never touches the border */
+.sv-contact-cut { box-sizing: border-box; padding-top: .75rem; }
