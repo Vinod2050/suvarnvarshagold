@@ -47,3 +47,5 @@ template { display: none; }
 @media (min-width: 1024px) and (min-height: 900px) {
   .sv-contact-model { min-height: min(38rem, calc(100svh - 16rem)); }
 }
+/* The gold ring behind the Contact/FAQ model never gets wider than its box (tablets: tall, narrow box) */
+.sv-contact-model > svg.animate-ring-turn { max-width: 100%; }
