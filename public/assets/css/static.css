@@ -37,6 +37,9 @@ template { display: none; }
   box-shadow: 0 0 0 6px rgba(194, 165, 46, .15), 0 18px 44px rgba(46, 35, 39, .28);
 }
 .sv-who-img { object-fit: cover; object-position: 50% 0; }
-/* Contact hero: the bridal cut-out (same as the home hero) stands on the bottom of the gold box;
-   a little space at the top so the head never touches the border */
-.sv-contact-cut { box-sizing: border-box; padding-top: .75rem; }
+/* Contact hero: the bridal cut-out stands in the hero like the home page models (no box).
+   Phones: its own space below the text, same size as the home hero model. */
+@media (max-width: 767.98px) {
+  .sv-contact-model { width: 100%; max-width: 24rem; height: 20rem; margin: 1.5rem auto 0; }
+}
+@media (min-width: 640px) and (max-width: 767.98px) { .sv-contact-model { height: 24rem; } }
