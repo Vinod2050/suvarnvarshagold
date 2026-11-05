@@ -43,3 +43,7 @@ template { display: none; }
   .sv-contact-model { width: 100%; max-width: 24rem; height: 20rem; margin: 1.5rem auto 0; }
 }
 @media (min-width: 640px) and (max-width: 767.98px) { .sv-contact-model { height: 24rem; } }
+/* Tall desktop screens: the Contact/FAQ model grows to match the home hero model */
+@media (min-width: 1024px) and (min-height: 900px) {
+  .sv-contact-model { min-height: min(38rem, calc(100svh - 16rem)); }
+}
