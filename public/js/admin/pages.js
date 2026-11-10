@@ -78,6 +78,12 @@
   function rateValues(r) {
     return r ? { effective_date: r.effective_date, gold_24k: r.gold_24k, gold_22k: r.gold_22k, gold_18k: r.gold_18k, silver_kg: r.silver_kg } : {};
   }
+  // After a save: say plainly whether the website shows this rate now, and if not, why.
+  function rateSavedMessage(r) {
+    if (r.is_live) return 'Rate saved. The website now shows it.';
+    if (r.effective_date > SV.todayIndia()) return 'Rate saved for ' + SV.date(r.effective_date) + '. The website shows it from that day.';
+    return 'Rate saved for ' + SV.date(r.effective_date) + '. The website shows the newer rate of ' + SV.date(r.live_date) + '.';
+  }
 
   function goldRates() {
     var form = SV.$('#rate-form');
@@ -102,6 +108,12 @@
         { label: '18K', half: true, cls: 'num', render: function (r) { return SV.inr(r.gold_18k); } },
         { label: 'Silver/kg', half: true, cls: 'num', render: function (r) { return SV.inr(r.silver_kg); } },
         { label: 'Saved', half: true, render: function (r) { return h('span', { class: 'adm-muted text-nowrap' }, SV.dateTime(r.updated_at)); } },
+        { label: 'Website', half: true, render: function (r) {
+          if (r.is_live) return SV.badge('active', 'Showing now');
+          if (r.effective_date > SV.todayIndia()) return SV.badge('pending', 'From ' + SV.date(r.effective_date));
+          if (r.is_replaced) return SV.badge('inactive', 'Older save');
+          return '';
+        } },
       ],
       actions: function (r, reload) {
         return [
@@ -110,7 +122,7 @@
               title: 'Edit rate for ' + SV.date(r.effective_date),
               fields: RATE_FIELDS,
               values: rateValues(r),
-              submit: function (v) { return SV.api('PUT', '/api/admin/gold-rates/' + r.id, v).then(function () { SV.toast('Rate updated'); reload(); }); },
+              submit: function (v) { return SV.api('PUT', '/api/admin/gold-rates/' + r.id, v).then(function (saved) { SV.toast(rateSavedMessage(saved)); reload(); }); },
             });
           }),
           SV.iconBtn('trash', 'Delete rate', function () { SV.removeRow('/api/admin/gold-rates/' + r.id, 'the rate for ' + SV.date(r.effective_date), reload); }, true),
@@ -124,7 +136,7 @@
       var btn = form.querySelector('[type=submit]');
       SV.busy(btn, true);
       SV.api('POST', '/api/admin/gold-rates', SV.values(form, RATE_FIELDS))
-        .then(function () { SV.toast('Rate saved. The website now shows it.'); list.reload(); })
+        .then(function (saved) { SV.toast(rateSavedMessage(saved)); list.reload(); })
         .catch(function (err) { SV.showErrors(form, err, alertEl); })
         .then(function () { SV.busy(btn, false); });
     });

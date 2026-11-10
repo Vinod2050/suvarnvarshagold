@@ -6,7 +6,7 @@
 //
 // First accounts: no password is kept in any file. From the private hosting settings:
 //   SUPERADMIN_PASSWORD (+ SUPERADMIN_USERNAME, default "superadmin") -> created when no super admin exists
-//   ADMIN_PASSWORD      (+ ADMIN_USERNAME, default "admin")           -> created when no admin exists
+//   ADMIN_PASSWORD      (+ ADMIN_USERNAME, default "admin")           -> created when no account with the admin role exists
 // An existing account is never changed, so the settings can stay or be removed after the first start.
 const fs = require('fs');
 const path = require('path');
@@ -38,14 +38,18 @@ async function addMissingColumns(conn) {
 async function createAccount(conn, { role, usernameVar, passwordVar, defaultUsername }) {
   const password = process.env[passwordVar] || '';
   if (!password) return null;
-  const where = role === 'superadmin' ? "role = 'superadmin'" : '1 = 1';
-  const [[row]] = await conn.query(`SELECT COUNT(*) AS n FROM admin_users WHERE ${where}`);
+  // Each role is checked on its own: the super admin made first must not stop the "admin" account being made.
+  const [[row]] = await conn.query('SELECT COUNT(*) AS n FROM admin_users WHERE role = ?', [role]);
   if (row.n > 0) return null;
   const username = (process.env[usernameVar] || defaultUsername).trim();
   if (password.length < MIN_PASSWORD) throw new Error(`${passwordVar} must be at least ${MIN_PASSWORD} characters.`);
   if (!/^[a-zA-Z0-9._-]{3,50}$/.test(username)) throw new Error(`${usernameVar}: use 3-50 letters, numbers, dots, dashes or underscores.`);
   const [[taken]] = await conn.query('SELECT COUNT(*) AS n FROM admin_users WHERE username = ?', [username]);
-  if (taken.n > 0) throw new Error(`${usernameVar}: the username "${username}" is already used by another account.`);
+  if (taken.n > 0) {
+    // e.g. "admin" was made a super admin with MAKE_SUPERADMIN: leave that account as it is.
+    if (role === 'admin') return null;
+    throw new Error(`${usernameVar}: the username "${username}" is already used by another account.`);
+  }
   const hash = await bcrypt.hash(password, 12);
   await conn.query("INSERT INTO admin_users (username, password_hash, display_name, role, status) VALUES (?, ?, ?, ?, 'active')", [
     username,

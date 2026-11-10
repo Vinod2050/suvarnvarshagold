@@ -33,24 +33,46 @@ function checkRateOrder(r) {
   }
 }
 
+// Adds what the admin panel needs to tell the truth after a save: is this the rate the website shows now?
+async function withLive(row) {
+  const live = await goldRates.latest(todayIndia());
+  return { ...row, is_live: Boolean(live && live.id === row.id), live_date: live ? live.effective_date : null };
+}
+
+// Changes row `id` and makes it the only rate of its day, so the website always shows what was saved last.
+async function saveDay(id, clean, adminId) {
+  if (!(await goldRates.update(id, clean, adminId))) throw notFound('Rate');
+  await goldRates.touch(id);
+  await goldRates.removeOtherRowsOfDay(clean.effective_date, id);
+  await activity.add(adminId, 'update', 'gold_rate', id, `24K ${clean.gold_24k}, 22K ${clean.gold_22k} for ${clean.effective_date}`);
+  return withLive(await goldRates.get(id));
+}
+
 const rateService = {
-  list: (opts) => goldRates.list(opts),
+  async list(opts) {
+    const [page, live] = await Promise.all([goldRates.list(opts), goldRates.latest(todayIndia())]);
+    // Rows of the same day that the website no longer uses (older duplicate saves) are marked too.
+    const used = new Set((await goldRates.history(todayIndia(), 1000)).map((r) => r.id));
+    const items = page.items.map((r) => ({ ...r, is_live: Boolean(live && live.id === r.id), is_replaced: r.effective_date <= todayIndia() && !used.has(r.id) }));
+    return { ...page, items };
+  },
+  // "Save rate": one rate per day. Saving again for the same day changes that day's rate.
   async create(body, adminId) {
     const clean = validate(body, rateSchema);
     checkRateDate(clean.effective_date);
     checkRateOrder(clean);
+    const existing = await goldRates.forDate(clean.effective_date);
+    if (existing) return saveDay(existing.id, clean, adminId);
     const row = await goldRates.create(clean, adminId);
     await activity.add(adminId, 'create', 'gold_rate', row.id, `24K ${clean.gold_24k}, 22K ${clean.gold_22k} for ${clean.effective_date}`);
-    return row;
+    return withLive(row);
   },
+  // "Edit" in the rate history.
   async update(id, body, adminId) {
     const clean = validate(body, rateSchema);
     checkRateDate(clean.effective_date);
     checkRateOrder(clean);
-    const row = await goldRates.update(id, clean, adminId);
-    if (!row) throw notFound('Rate');
-    await activity.add(adminId, 'update', 'gold_rate', id, `24K ${clean.gold_24k}, 22K ${clean.gold_22k} for ${clean.effective_date}`);
-    return row;
+    return saveDay(id, clean, adminId);
   },
   async remove(id, adminId) {
     if (!(await goldRates.remove(id))) throw notFound('Rate');

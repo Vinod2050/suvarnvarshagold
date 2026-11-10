@@ -260,8 +260,13 @@ async function main() {
     assert.equal(Number(r.data.gold_24k), 13000);
     const pub = await call('GET', '/api/public/gold-rates');
     assert.equal(pub.data.latest.gold_24k, 13000, 'website shows the newest rate');
+    assert.equal(r.data.is_live, true, 'save reply says the website shows it');
+    const again = await call('POST', '/api/admin/gold-rates', { body: { effective_date: today, gold_24k: 13050, gold_22k: 11950 } });
+    assert.equal(again.data.id, rateId, 'saving the same day again changes that day, no second row');
+    assert.equal((await call('GET', '/api/public/gold-rates')).data.latest.gold_24k, 13050, 'website shows the second save');
     const u = await call('PUT', `/api/admin/gold-rates/${rateId}`, { body: { effective_date: today, gold_24k: 13100, gold_22k: 12000 } });
     assert.equal(Number(u.data.gold_24k), 13100);
+    assert.equal((await call('GET', '/api/public/gold-rates')).data.latest.gold_24k, 13100, 'website shows the edit');
     const list = await call('GET', '/api/admin/gold-rates?page=1&pageSize=5');
     assert.ok(list.data.items.length >= 1);
     assert.ok(list.data.total >= 2);

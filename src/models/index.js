@@ -7,17 +7,31 @@ const goldRates = makeModel({
   columns: ['effective_date', 'gold_24k', 'gold_22k', 'gold_18k', 'silver_kg'],
   orderBy: 'effective_date DESC, id DESC',
 });
+// A day can hold more than one row (older versions saved a new row on every Save). For each day the
+// website uses the row changed last, so an edit to any row of that day shows on the website.
+const LAST_CHANGED = 'updated_at DESC, id DESC';
+const NOT_SUPERSEDED = `NOT EXISTS (SELECT 1 FROM gold_rates n WHERE n.effective_date = r.effective_date
+  AND (n.updated_at > r.updated_at OR (n.updated_at = r.updated_at AND n.id > r.id)))`;
+
 // Newest rate whose effective date is today or earlier (Indian date).
 goldRates.latest = (today) =>
-  db.one('SELECT * FROM gold_rates WHERE effective_date <= ? ORDER BY effective_date DESC, id DESC LIMIT 1', [today]);
-// One row per day (the last save of each day), newest first.
+  db.one(`SELECT * FROM gold_rates WHERE effective_date <= ? ORDER BY effective_date DESC, ${LAST_CHANGED} LIMIT 1`, [today]);
+// One row per day (the row changed last), newest day first.
 goldRates.history = (today, days = 30) =>
   db.query(
-    `SELECT r.* FROM gold_rates r
-     JOIN (SELECT MAX(id) AS id FROM gold_rates WHERE effective_date <= ? GROUP BY effective_date) last ON last.id = r.id
+    `SELECT r.* FROM gold_rates r WHERE r.effective_date <= ? AND ${NOT_SUPERSEDED}
      ORDER BY r.effective_date DESC LIMIT ${Number(days)}`,
     [today],
   );
+// The row the website uses for this date, if any.
+goldRates.forDate = (date) =>
+  db.one(`SELECT * FROM gold_rates WHERE effective_date = ? ORDER BY ${LAST_CHANGED} LIMIT 1`, [date]);
+// Marks a row as just changed, even when the numbers stayed the same (MySQL only moves
+// updated_at by itself when a value changes).
+goldRates.touch = (id) => db.query('UPDATE gold_rates SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [id]);
+// One rate per day: after a save, older rows of the same day are removed so they can never win.
+goldRates.removeOtherRowsOfDay = (date, keepId) =>
+  db.query('DELETE FROM gold_rates WHERE effective_date = ? AND id <> ?', [date, keepId]);
 
 const advertisements = makeModel({
   table: 'advertisements',
