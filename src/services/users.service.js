@@ -6,7 +6,7 @@ const { badRequest, forbidden, notFound } = require('../utils/response');
 const { hashPassword, checkUsername } = require('./auth.service');
 
 const ROLES = ['superadmin', 'admin'];
-// Passwords set by the super admin are temporary; the user changes them (12+ characters) after signing in.
+// Passwords set by the super admin are temporary; the user changes them (10+ characters) after signing in.
 const TEMP_PASSWORD = { type: 'text', required: true, min: 8, max: 128 };
 
 async function get(id) {

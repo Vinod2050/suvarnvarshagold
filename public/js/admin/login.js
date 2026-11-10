@@ -131,7 +131,7 @@
       var f = {};
       if (!el.setup_token.value.trim()) f.setup_token = 'Enter the setup code';
       if (!/^[a-zA-Z0-9._-]{3,50}$/.test(el.username.value.trim())) f.username = 'Use 3–50 letters, numbers, dots, dashes or underscores';
-      if (el.password.value.length < 12) f.password = 'Use at least 12 characters';
+      if (el.password.value.length < 10) f.password = 'Use at least 10 characters';
       else if (el.password.value !== el.again.value) f.again = 'The two passwords are not the same';
       if (Object.keys(f).length) { SV.showErrors(setup, { fields: f }); return null; }
       return { setup_token: el.setup_token.value.trim(), username: el.username.value.trim(), password: el.password.value };

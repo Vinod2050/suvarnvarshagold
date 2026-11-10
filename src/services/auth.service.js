@@ -13,7 +13,7 @@ const LOCK_AFTER = 8; // wrong passwords in a row before the account is locked
 const MAX_IP_FAILS = 20; // wrong tries per device in IP_WINDOW_MINUTES, any username
 const IP_WINDOW_MINUTES = 15;
 const SUPER_LOCK_MINUTES = 15; // a locked super admin is unlocked automatically after this
-const MIN_PASSWORD = 12;
+const MIN_PASSWORD = 10;
 // Compared against when the username does not exist, so the reply takes the same time either way.
 const DUMMY_HASH = bcrypt.hashSync('not-a-real-password-placeholder', BCRYPT_COST);
 

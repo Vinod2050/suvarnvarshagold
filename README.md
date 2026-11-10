@@ -70,7 +70,7 @@ Back up the database regularly (GoDaddy database backups or an SQL export).
 No password is kept in any file of the project. Accounts are created on start from private hosting
 settings, only when missing (never overwritten): `SUPERADMIN_PASSWORD` → **superadmin** (everything,
 incl. Users and Settings) and `ADMIN_PASSWORD` → **admin** (rates, videos, feedback, products, FAQs).
-Change passwords after the first sign-in (top-right menu → Change password, 12+ characters).
+Change passwords after the first sign-in (top-right menu → Change password, 10+ characters).
 
 The super admin manages users on the **Users** page: add, edit access, reset password, lock / unlock,
 remove. Wrong passwords in a row: **3 → wait 1 minute, 5 → wait 5 minutes, 8 → account locked** until a

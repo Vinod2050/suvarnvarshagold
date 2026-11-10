@@ -385,7 +385,7 @@
         var cur = pw.elements.current_password.value;
         var nw = pw.elements.new_password.value;
         if (nw !== pw.elements.again.value) return SV.showErrors(pw, { fields: { again: 'The two new passwords are not the same' } }, pwAlert);
-        if (nw.length < 12) return SV.showErrors(pw, { fields: { new_password: 'Use at least 12 characters' } }, pwAlert);
+        if (nw.length < 10) return SV.showErrors(pw, { fields: { new_password: 'Use at least 10 characters' } }, pwAlert);
         var btn = pw.querySelector('[type=submit]');
         SV.busy(btn, true);
         SV.api('PUT', '/api/auth/password', { current_password: cur, new_password: nw })

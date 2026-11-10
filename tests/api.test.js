@@ -423,10 +423,10 @@ async function main() {
     const wrong = await call('PUT', '/api/auth/password', { body: { current_password: 'nope-nope-nope', new_password: 'Another-Password-1' } });
     assert.equal(wrong.status, 400);
     const short = await call('PUT', '/api/auth/password', { body: { current_password: PASS, new_password: 'Short@1' } });
-    assert.equal(short.status, 400, 'new passwords need 12+ characters');
+    assert.equal(short.status, 400, 'new passwords need 10+ characters');
     assert.ok(short.fields.new_password);
-    // Change and change back (only when the test password itself meets the 12-character rule).
-    if (PASS.length >= 12) {
+    // Change and change back (only when the test password itself meets the 10-character rule).
+    if (PASS.length >= 10) {
       const ok1 = await call('PUT', '/api/auth/password', { body: { current_password: PASS, new_password: `${PASS}x` } });
       assert.equal(ok1.ok, true);
       await call('PUT', '/api/auth/password', { body: { current_password: `${PASS}x`, new_password: PASS } });

@@ -29,7 +29,7 @@ Settings to enter: see `deploy/godaddy-env.txt`.
    - `<app address>/api/health` shows `{"ok":true,"data":{"db":"up"}}`
    - `<app address>/` shows the website with today's rate
    - `<app address>/admin` → sign in as **superadmin** with the password from `SUPERADMIN_PASSWORD`
-7. **Change the passwords** after the first sign-in (top-right menu → Change password, 12+ characters).
+7. **Change the passwords** after the first sign-in (top-right menu → Change password, 10+ characters).
    The password settings are only used while an account does not exist; you can delete them afterwards.
 
 ## Users and access

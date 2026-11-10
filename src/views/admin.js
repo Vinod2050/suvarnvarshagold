@@ -3,7 +3,7 @@
 const { esc } = require('./util');
 const { icon } = require('./icons');
 // Bump to make browsers fetch new admin CSS/JS after a change.
-const ASSET_VERSION = '14';
+const ASSET_VERSION = '15';
 
 const NAV = [
   ['dashboard', 'Dashboard', 'layout'],
@@ -61,7 +61,7 @@ const overlays = `<div class="modal fade" id="confirm-modal" tabindex="-1" aria-
     <div class="modal-body">
       <div class="alert alert-danger d-none" role="alert" id="password-alert"></div>
       <div class="mb-3"><label class="form-label" for="pw-current">Current password</label><input class="form-control" type="password" id="pw-current" name="current_password" autocomplete="current-password" required><div class="invalid-feedback"></div></div>
-      <div class="mb-3"><label class="form-label" for="pw-new">New password</label><input class="form-control" type="password" id="pw-new" name="new_password" autocomplete="new-password" required minlength="12"><div class="form-text">At least 12 characters. A short sentence is easy to remember.</div><div class="invalid-feedback"></div></div>
+      <div class="mb-3"><label class="form-label" for="pw-new">New password</label><input class="form-control" type="password" id="pw-new" name="new_password" autocomplete="new-password" required minlength="10"><div class="form-text">At least 10 characters. A short sentence is easy to remember.</div><div class="invalid-feedback"></div></div>
       <div class="mb-0"><label class="form-label" for="pw-again">Type the new password again</label><input class="form-control" type="password" id="pw-again" name="again" autocomplete="new-password" required><div class="invalid-feedback"></div></div>
     </div>
     <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn adm-btn-primary">Change password</button></div>
@@ -215,7 +215,7 @@ function loginPage() {
           <p class="adm-login-sub">This screen appears only once, while no admin exists. You need the setup code from the app settings (SETUP_TOKEN).</p>
           ${loginField({ id: 's-token', name: 'setup_token', label: 'Setup code', autocomplete: 'off', ic: 'key', attrs: 'spellcheck="false"' })}
           ${loginField({ id: 's-username', name: 'username', label: 'Username', autocomplete: 'username', ic: 'user', help: '3–50 letters, numbers, dots, dashes or underscores.', attrs: 'autocapitalize="none" spellcheck="false"' })}
-          ${loginField({ id: 's-password', name: 'password', label: 'Password', type: 'password', autocomplete: 'new-password', ic: 'lock', reveal: true, help: 'At least 12 characters.', attrs: 'minlength="12"' })}
+          ${loginField({ id: 's-password', name: 'password', label: 'Password', type: 'password', autocomplete: 'new-password', ic: 'lock', reveal: true, help: 'At least 10 characters.', attrs: 'minlength="10"' })}
           ${loginField({ id: 's-again', name: 'again', label: 'Type the password again', type: 'password', autocomplete: 'new-password', ic: 'lock', reveal: true })}
           <p class="adm-error d-none" role="alert" id="setup-alert"></p>
           <button type="submit" class="adm-btn adm-btn-gold adm-block"><span class="lg-btn-label">Create admin and sign in</span></button>
