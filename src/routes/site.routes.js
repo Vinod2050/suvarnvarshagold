@@ -83,7 +83,32 @@ async function renderPage(req, slug, lang) {
   if (faqs) html = live.applyFaqs(html, faqs, lang, slug === 'faq');
   html = live.applyRates(html, rate, lang, settings.phone_primary);
   html = live.applySettings(html, settings, lang, env.siteUrl || '');
-  return html;
+  return versionAssets(html);
+}
+
+// The hosting (Cloudflare) tells browsers to keep .js and .css files for 31 days, whatever this app says.
+// So each page links them with ?v=<fingerprint of the content>: when the rate, a video or a design file
+// changes, the address changes and browsers fetch the new file. Pages themselves are never cached.
+const fingerprint = (text) => crypto.createHash('sha1').update(text).digest('hex').slice(0, 12);
+const fileVersions = new Map();
+function fileVersion(rel) {
+  const file = path.join(PUBLIC, rel);
+  const mtime = fs.statSync(file).mtimeMs;
+  const hit = fileVersions.get(rel);
+  if (hit && hit.mtime === mtime) return hit.v;
+  const v = fingerprint(fs.readFileSync(file));
+  fileVersions.set(rel, { v, mtime });
+  return v;
+}
+async function versionAssets(html) {
+  const dataVersion = fingerprint(await safe(dataJs(), readPage('assets/js/data.js')));
+  return html.replace(/((?:src|href)="(?:\.\.\/)?)(assets\/(?:js|css)\/[\w.-]+\.(?:js|css))(?:\?[^"]*)?"/g, (all, pre, rel) => {
+    try {
+      return `${pre}${rel}?v=${rel === 'assets/js/data.js' ? dataVersion : fileVersion(rel)}"`;
+    } catch {
+      return all; // file not on disk: leave the link as it is
+    }
+  });
 }
 
 function send(res, html, status = 200) {
