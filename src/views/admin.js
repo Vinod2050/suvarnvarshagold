@@ -3,7 +3,7 @@
 const { esc } = require('./util');
 const { icon } = require('./icons');
 // Bump to make browsers fetch new admin CSS/JS after a change.
-const ASSET_VERSION = '13';
+const ASSET_VERSION = '14';
 
 const NAV = [
   ['dashboard', 'Dashboard', 'layout'],
